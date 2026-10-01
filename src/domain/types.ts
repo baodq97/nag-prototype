@@ -337,6 +337,26 @@ export type IntegrationLevel = 'foundation' | 'app-context' | 'evidence-grade';
 /** S1: the provider assesses itself; S2: a notified body assesses it. */
 export type Scenario = 'S1' | 'S2';
 
+export interface IntegrationLevelInfo {
+  id: IntegrationLevel;
+  name: string;
+  adds: string;
+  effort: string;
+}
+
+export interface ScenarioInfo {
+  id: Scenario;
+  name: string;
+  route: AssessmentRoute;
+  evidence: string;
+}
+
+/** Where the tenant stands: its integration level and its deployment scenario. */
+export interface TenantDeployment {
+  level: IntegrationLevel;
+  scenario: Scenario;
+}
+
 export type McpSessionState = 'open' | 'closed' | 'terminated';
 
 /** A session between an agent (the client) and an MCP server, as the inspector saw it. */

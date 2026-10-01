@@ -24,6 +24,9 @@ export type ErasureStage = 'confirm' | 'key-destroyed' | 'countable' | 'attested
 export interface ErasureRun {
   subjectId: string;
   stage: ErasureStage;
+  /** When the erasure was started; it is also when the request counts as received. */
+  startedAt: string;
+  /** When the current stage was reached. */
   at: string;
 }
 

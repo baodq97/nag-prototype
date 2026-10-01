@@ -41,6 +41,21 @@ it('finds no over-claiming wording in the source or UI text', () => {
   expect(hits).toEqual([]);
 });
 
+// Evidence and tool calls carry codes from the catalogue; the old generic event types are gone.
+const EVENT_TYPE = /\b(?:request\.[a-z]+|tool\.call)\b/;
+
+it('has no generic event type left in the source or the browser tests', () => {
+  const scanned = [...files(join(ROOT, 'src')), ...files(join(ROOT, 'e2e'))]
+    .map((path) => relative(ROOT, path))
+    .filter((path) => path !== SELF);
+  const hits = scanned.flatMap((path) =>
+    readFileSync(join(ROOT, path), 'utf8')
+      .split('\n')
+      .flatMap((line, i) => (EVENT_TYPE.test(line) ? [`${path}:${i + 1}: ${line.trim()}`] : [])),
+  );
+  expect(hits).toEqual([]);
+});
+
 // "tier" is always "risk tier" (also RiskTier, riskTiers, ALL_RISK_TIERS); the product's
 // deployment depth is called "integration level". A bare "tier" is a leftover of the old wording.
 const BARE_TIER = /(?<!risk[ _-])(?<!risk)(?<![a-z])tiers?(?![a-z])/gi;

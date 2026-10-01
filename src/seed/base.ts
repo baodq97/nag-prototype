@@ -1,4 +1,12 @@
-import type { FrameworkItem, Integration, Person, Tenant } from '../domain/types';
+import type {
+  FrameworkItem,
+  Integration,
+  IntegrationLevelInfo,
+  Person,
+  ScenarioInfo,
+  Tenant,
+  TenantDeployment,
+} from '../domain/types';
 import { articleMap } from './articles';
 
 /** The fixed "now" of the demo: Wednesday 30 September 2026, 10:00 in Berlin. */
@@ -26,6 +34,45 @@ export const people: Person[] = [
 
 /** The signed-in demo user. */
 export const currentUserId = 'p-lena';
+
+/** The one value onboarding, posture and the package screen read the tenant's depth from. */
+export const tenantDeployment: TenantDeployment = { level: 'app-context', scenario: 'S1' };
+
+export const integrationLevels: IntegrationLevelInfo[] = [
+  {
+    id: 'foundation',
+    name: 'Foundation',
+    adds: 'A reverse proxy in front of the model endpoints',
+    effort: 'Minutes',
+  },
+  {
+    id: 'app-context',
+    name: 'App context',
+    adds: 'Adds lifecycle hooks inside the agent runtime',
+    effort: 'Hours to days',
+  },
+  {
+    id: 'evidence-grade',
+    name: 'Evidence grade',
+    adds: 'Adds the MCP inspector',
+    effort: '1–2 weeks, plus months of evidence build-up',
+  },
+];
+
+export const scenarios: ScenarioInfo[] = [
+  {
+    id: 'S1',
+    name: 'Internal control',
+    route: 'self-assessment',
+    evidence: 'About 5 months',
+  },
+  {
+    id: 'S2',
+    name: 'Notified-body assessed',
+    route: 'notified-body',
+    evidence: 'About 14–24 months',
+  },
+];
 
 const iso = (ref: string, title: string): FrameworkItem => ({
   id: `iso-${ref.toLowerCase()}`,

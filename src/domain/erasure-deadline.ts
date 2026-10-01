@@ -26,7 +26,7 @@ function workingDaysBetween(from: string, to: string): number {
 export function erasureDue(receivedAt: string, timeZone: string): string {
   const received = localParts(receivedAt, timeZone).date;
   let due = received;
-  for (let left = ERASURE_WORKING_DAYS; left > 0; ) {
+  for (let left = ERASURE_WORKING_DAYS; left > 0;) {
     due = shift(due, 1);
     if (isWorkingDay(due)) left -= 1;
   }

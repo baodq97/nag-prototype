@@ -2,6 +2,7 @@ import { addDays } from '../domain/time';
 import type {
   ApprovalStep,
   Audit,
+  DeclarationElement,
   PackageSection,
   QmsTemplate,
   Risk,
@@ -11,6 +12,45 @@ import type {
 import { NOW } from './base';
 
 const both: PackageSection['routes'] = ['self-assessment', 'notified-body'];
+
+// [group, title, source, state]. Titles are short descriptions in our own words.
+const ELEMENTS: [
+  DeclarationElement['group'],
+  string,
+  DeclarationElement['source'],
+  DeclarationElement['state'],
+][] = [
+  ['declaration', 'Name, type and version of the AI system', 'runtime', 'complete'],
+  ['declaration', 'Name and address of the provider', 'customer', 'complete'],
+  [
+    'declaration',
+    'Note that the provider alone answers for the declaration',
+    'template',
+    'complete',
+  ],
+  ['declaration', 'Statement that the system meets the requirements', 'template', 'complete'],
+  ['declaration', 'Statement on the processing of personal data', 'customer', 'missing'],
+  ['declaration', 'Standards and specifications the provider applied', 'customer', 'missing'],
+  ['declaration', 'Assessment route followed', 'template', 'complete'],
+  ['declaration', 'Place and date of issue', 'customer', 'missing'],
+  ['declaration', 'Name and role of the person who signs', 'customer', 'missing'],
+  ['deployer', 'Intended use and operating context at the deployer', 'customer', 'complete'],
+  ['deployer', 'Human oversight set-up at the deployer', 'runtime', 'complete'],
+  ['deployer', 'Instructions for use handed to the deployer', 'template', 'missing'],
+  ['supplier', 'Supplier attestation', 'customer', 'missing'],
+  ['supplier', 'Component list', 'runtime', 'complete'],
+];
+
+/** What the conformity package needs: the declaration, the deployer agreement and supplier inputs. */
+export const declarationElements: DeclarationElement[] = ELEMENTS.map(
+  ([group, title, source, state], i) => ({
+    id: `DE-${String(i + 1).padStart(2, '0')}`,
+    group,
+    title,
+    source,
+    state,
+  }),
+);
 
 export const packageSections: PackageSection[] = [
   {

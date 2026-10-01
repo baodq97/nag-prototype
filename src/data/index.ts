@@ -5,7 +5,10 @@ import { appliesTo, attentionFor, coverageStatus } from '../domain/aiact';
 import type { AssistantContext } from '../domain/assistant';
 import { type DerivedCategory, deriveTrust } from '../domain/claims';
 import { classify } from '../domain/classification';
+import { CODES } from '../domain/codes';
 import { erasureLayers } from '../domain/erasure';
+import { type ErasureClock, erasureClock, erasureDue } from '../domain/erasure-deadline';
+import { lastRun, nextRun, runAt } from '../domain/ledger-ops';
 import { escalationOf } from '../domain/escalation';
 import { blastRadius, breachTotals, stageHealth } from '../domain/health';
 import { integrationUnlocks } from '../domain/integrations';
@@ -23,27 +26,38 @@ import type {
   ComplianceDocument,
   Control,
   CoverageRow,
+  DeclarationElement,
+  DeclarationGroup,
+  ErasureRequest,
   FrameworkId,
   FrameworkItem,
+  IntegrationLevelInfo,
+  McpSession,
   Policy,
   QuarantineItem,
   ReviewState,
+  ScenarioInfo,
   SearchEntry,
+  ToolCall,
 } from '../domain/types';
 import {
   NOW,
   currentUserId,
   detectionQuality,
   frameworkItems,
+  integrationLevels,
   integrations,
   people,
+  scenarios,
   tenant,
+  tenantDeployment,
   trustUpdatedAt,
 } from '../seed/base';
 import { ARTICLE_GROUPS, articleMap } from '../seed/articles';
 import { controls, documents, policies, tests } from '../seed/catalogue';
 import {
   audits,
+  declarationElements,
   packageSections,
   qmsTemplates,
   risks,
@@ -53,23 +67,32 @@ import {
 import {
   ERASURE_SUBJECTS,
   circuitBreaker,
+  classifierConfig,
   defaultFallbackMode,
+  erasureRequests as seededErasureRequests,
   evidence,
+  lastFailover,
   latencyProfiles,
+  ledgerSchedule,
   lineage,
+  mcpSessions as seededSessions,
   pipelineStages,
   policyBundles,
   privacyEndpoints,
   quarantine,
+  timestampAuthorities,
+  toolCalls,
   traces,
 } from '../seed/runtime';
 import { aiSystems as seededSystems } from '../seed/systems';
 
 export {
   ARTICLE_GROUPS,
+  CODES,
   ERASURE_SUBJECTS,
   NOW,
   audits,
+  classifierConfig,
   controls,
   currentUserId,
   defaultFallbackMode,
@@ -194,6 +217,126 @@ export function trustEntries(): DerivedCategory[] {
 /** The three evidence layers of every range that holds a record of the subject. */
 export function erasureFor(subjectId: string) {
   return erasureLayers(subjectId, evidence, verification());
+}
+
+/** The weekly full verification: its schedule, the last run replayed over the ledger, the next run. */
+export function ledgerOperations() {
+  const lastAt = lastRun(ledgerSchedule, NOW, tenant.timeZone);
+  return {
+    schedule: ledgerSchedule,
+    lastRun: runAt(evidence, lastAt),
+    nextRunAt: nextRun(ledgerSchedule, NOW, tenant.timeZone),
+  };
+}
+
+/** The timestamp authorities (stubs) and the last switch between them. */
+export function authorities() {
+  const name = (id: string) => timestampAuthorities.find((a) => a.id === id)!.name;
+  return {
+    authorities: timestampAuthorities,
+    failover: { ...lastFailover, from: name(lastFailover.fromId), to: name(lastFailover.toId) },
+  };
+}
+
+/** What the session keeps of an erasure it ran. */
+export interface SessionErasure {
+  subjectId: string;
+  stage: string;
+  startedAt: string;
+  at: string;
+}
+
+export interface ErasureRequestView extends ErasureRequest {
+  due: string;
+  /** Absent once the request is completed: the clock stops. */
+  clock?: ErasureClock;
+  fromSession: boolean;
+}
+
+/**
+ * The seeded erasure requests and one per erasure started in the session, received when it
+ * started and completed when it was attested.
+ */
+export function erasureRequests(now: string, session: SessionErasure[]): ErasureRequestView[] {
+  const started: ErasureRequest[] = session.map((e, i) => ({
+    id: `ER-S${String(i + 1).padStart(2, '0')}`,
+    subjectId: e.subjectId,
+    receivedAt: e.startedAt,
+    ...(e.stage === 'attested'
+      ? { state: 'completed' as const, completedAt: e.at }
+      : { state: 'open' as const }),
+  }));
+  const view = (r: ErasureRequest, fromSession: boolean): ErasureRequestView => {
+    const due = erasureDue(r.receivedAt, tenant.timeZone);
+    return {
+      ...r,
+      due,
+      ...(r.state === 'open' && { clock: erasureClock(due, now, tenant.timeZone) }),
+      fromSession,
+    };
+  };
+  return [
+    ...seededErasureRequests.map((r) => view(r, false)),
+    ...started.map((r) => view(r, true)),
+  ];
+}
+
+export interface ElementGroup {
+  group: DeclarationGroup;
+  elements: DeclarationElement[];
+  complete: number;
+  total: number;
+}
+
+/** The conformity package checklist in its 3 groups, each with its count. */
+export function packageElements(): ElementGroup[] {
+  return (['declaration', 'deployer', 'supplier'] as const).map((group) => {
+    const elements = declarationElements.filter((e) => e.group === group);
+    return {
+      group,
+      elements,
+      complete: elements.filter((e) => e.state === 'complete').length,
+      total: elements.length,
+    };
+  });
+}
+
+/** The tenant's integration level and scenario, with every level and scenario for the tables. */
+export function deployment(): {
+  level: IntegrationLevelInfo;
+  scenario: ScenarioInfo;
+  levels: IntegrationLevelInfo[];
+  scenarios: ScenarioInfo[];
+  /** "Integration level: App context · Scenario S1". */
+  label: string;
+} {
+  const level = integrationLevels.find((l) => l.id === tenantDeployment.level)!;
+  const scenario = scenarios.find((s) => s.id === tenantDeployment.scenario)!;
+  return {
+    level,
+    scenario,
+    levels: integrationLevels,
+    scenarios,
+    label: `Integration level: ${level.name} · Scenario ${scenario.id}`,
+  };
+}
+
+export interface McpSessionView extends McpSession {
+  serverLabel: string;
+  calls: ToolCall[];
+}
+
+const mcpInspector = integrations.find((i) => i.kind === 'mcp-inspector');
+
+const sessions: McpSessionView[] = seededSessions.map((s) => ({
+  ...s,
+  serverLabel: mcpInspector?.scope.find((e) => e.id === s.serverId)?.label ?? s.serverId,
+  calls: toolCalls.filter((c) => c.sessionId === s.id),
+}));
+
+/** The sessions the MCP inspector saw, each with its tool calls in order. */
+export function mcpSessions(): McpSessionView[] {
+  return sessions;
 }
 
 export function runtimeHealth() {

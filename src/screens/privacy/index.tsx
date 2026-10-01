@@ -102,9 +102,10 @@ function ErasureFlow() {
       return;
     }
     setError(null);
+    const at = sessionNow();
     updateSession((s) => ({
       ...s,
-      erasures: [...s.erasures, { subjectId: id, stage: 'confirm', at: sessionNow() }],
+      erasures: [...s.erasures, { subjectId: id, stage: 'confirm', startedAt: at, at }],
     }));
     setSubject('');
   };
