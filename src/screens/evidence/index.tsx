@@ -1,15 +1,27 @@
 import { ShieldCheck } from 'lucide-react';
-import { type ReactNode, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router';
 import { evidence, verification } from '../../data';
+import { pageForRange } from '../../domain/evidence-paging';
 import type { EvidenceRecord, RangeVerification } from '../../domain/types';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
-import { DataTable, type Column, type Facet } from '../../ui/DataTable';
+import { DataTable, type Column, type Facet, type Sort } from '../../ui/DataTable';
+import { sortRows } from '../../ui/sort';
 import { Drawer } from '../../ui/Drawer';
 import { fmtDateTime } from '../../ui/format';
 import { StubLabel } from '../../ui/Labels';
 import { Page } from '../../ui/Page';
 import { StatusChip } from '../../ui/StatusChip';
+
+const PAGE_SIZE = 50;
+const INITIAL_SORT: Sort = { key: 'seq', dir: 'desc' };
+
+/** The page in `?page=N`; a missing or invalid value is page 1 (the table also clamps the top). */
+const pageFromParam = (value: string | null) => {
+  const n = Number(value);
+  return value !== null && Number.isInteger(n) && n >= 1 ? n : 1;
+};
 
 const short = (value: string, keep = 22) =>
   value.length > keep ? `${value.slice(0, keep)}…` : value;
@@ -125,7 +137,17 @@ function RecordDetail({ record }: { record: EvidenceRecord }) {
   );
 }
 
-function VerificationResults({ ranges }: { ranges: RangeVerification[] }) {
+function VerificationResults({
+  ranges,
+  searchFor,
+  onFollow,
+}: {
+  ranges: RangeVerification[];
+  /** The URL search string of the table page that holds the range, in the current sort. */
+  searchFor: (range: RangeVerification) => string;
+  /** Called when a range link is followed, to clear the table filters. */
+  onFollow: () => void;
+}) {
   return (
     <Card title="Verification result per range and layer">
       <p className="mb-3 text-xs text-slate-600">
@@ -156,7 +178,13 @@ function VerificationResults({ ranges }: { ranges: RangeVerification[] }) {
             {ranges.map((r) => (
               <tr key={r.fromSeq} data-testid={`range-${r.fromSeq}`}>
                 <th scope="row" className="px-2 py-1.5 font-mono text-sm font-medium">
-                  {r.fromSeq}–{r.toSeq}
+                  <Link
+                    to={{ search: searchFor(r) }}
+                    onClick={onFollow}
+                    className="text-accent-700 underline-offset-2 hover:underline"
+                  >
+                    {r.fromSeq}–{r.toSeq}
+                  </Link>
                 </th>
                 <td className="px-2 py-1.5">
                   {r.ok ? (
@@ -185,6 +213,28 @@ function VerificationResults({ ranges }: { ranges: RangeVerification[] }) {
 export default function EvidenceScreen() {
   const [selected, setSelected] = useState<EvidenceRecord | null>(null);
   const [results, setResults] = useState<RangeVerification[] | null>(null);
+  const [sort, setSort] = useState<Sort>(INITIAL_SORT);
+  const [resetKey, setResetKey] = useState(0);
+  const [params, setParams] = useSearchParams();
+
+  // One columns array for the table and for the range-to-page mapping, so both sort the same way.
+  const cols = useMemo(() => columns(setSelected), []);
+  const sorted = useMemo(() => sortRows(evidence, cols, sort), [cols, sort]);
+
+  const page = pageFromParam(params.get('page'));
+  const setPage = (next: number) => {
+    if (next === page) return;
+    setParams((prev) => {
+      const out = new URLSearchParams(prev);
+      if (next > 1) out.set('page', String(next));
+      else out.delete('page');
+      return out;
+    });
+  };
+  const searchFor = (range: RangeVerification) => {
+    const target = pageForRange(sorted, range.fromSeq, range.toSeq, PAGE_SIZE);
+    return target > 1 ? `?page=${target}` : '';
+  };
 
   return (
     <Page
@@ -203,16 +253,27 @@ export default function EvidenceScreen() {
         </Button>
       }
     >
-      {results && <VerificationResults ranges={results} />}
+      {results && (
+        <VerificationResults
+          ranges={results}
+          searchFor={searchFor}
+          onFollow={() => setResetKey((k) => k + 1)}
+        />
+      )}
       <DataTable
         label="evidence records"
         rows={evidence}
-        columns={columns(setSelected)}
+        columns={cols}
+        pageSize={PAGE_SIZE}
+        page={page}
+        onPageChange={setPage}
+        onSortChange={setSort}
+        resetKey={resetKey}
         facets={facets}
         rowKey={(r) => String(r.seq)}
         searchText={(r) => `${r.seq} ${r.eventType} ${r.endpoint} ${r.tenantId} ${r.digest}`}
         onRowClick={setSelected}
-        initialSort={{ key: 'seq', dir: 'desc' }}
+        initialSort={INITIAL_SORT}
       />
       <Drawer
         open={selected !== null}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_DEPTH, depths, isDepthAllowed, layoutTrace } from './lineage';
+import { MAX_DEPTH, depths, isDepthAllowed, layoutTrace, parentLabel } from './lineage';
 import type { LineageNode } from './types';
 
 const n = (id: string, parentId: string | null): LineageNode => ({
@@ -33,6 +33,25 @@ describe('depth limit', () => {
   it('treats a missing parent as a root and refuses cycles', () => {
     expect(depths([n('x', 'gone')]).get('x')).toBe(1);
     expect(() => depths([n('a', 'b'), n('b', 'a')])).toThrow(/Cycle/);
+  });
+});
+
+describe('parentLabel', () => {
+  const a = { ...n('a1', null), label: 'orchestrator' };
+  const b = n('b1', 'a1');
+  const orphan = n('o1', 'gone');
+  const byId = new Map([a, b, orphan].map((x) => [x.id, x]));
+
+  it("returns the parent's label", () => {
+    expect(parentLabel(b, byId)).toBe('orchestrator');
+  });
+
+  it('returns Root for a call with no parent', () => {
+    expect(parentLabel(a, byId)).toBe('Root');
+  });
+
+  it('returns Unknown parent, not the id, when the parent is not found', () => {
+    expect(parentLabel(orphan, byId)).toBe('Unknown parent');
   });
 });
 

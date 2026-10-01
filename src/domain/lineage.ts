@@ -25,6 +25,15 @@ export function depths(nodes: LineageNode[]): Map<string, number> {
   return result;
 }
 
+/** What the Parent column shows: the parent call's label, "Root", or "Unknown parent"; never an id. */
+export function parentLabel(
+  node: LineageNode,
+  nodesById: ReadonlyMap<string, LineageNode>,
+): string {
+  if (!node.parentId) return 'Root';
+  return nodesById.get(node.parentId)?.label ?? 'Unknown parent';
+}
+
 export interface PlacedNode {
   node: LineageNode;
   depth: number;
