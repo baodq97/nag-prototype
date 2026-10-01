@@ -2,6 +2,7 @@
 // purpose line on console screens and the thing the presenter points at are visible, and
 // nothing scrolls sideways. Whether a screen makes its purpose clear stays a reviewer's call.
 
+import { readFileSync } from 'node:fs';
 import { type Locator, type Page, expect, test } from '@playwright/test';
 import { collectErrors } from './helpers';
 
@@ -40,7 +41,10 @@ const PATHS: Record<string, Step[]> = {
     { path: '/integrations/int-mcp', anchor: text('No heartbeat since 07:12') },
     { path: '/lineage', anchor: h1 },
     { path: '/policy-bundles', anchor: h1 },
-    { path: '/quarantine', anchor: h1 },
+    {
+      path: '/quarantine',
+      anchor: (page) => page.getByRole('row').nth(1).getByRole('button', { name: 'Open Q-1045' }),
+    },
   ],
   'Platform and SRE owner': [
     { path: '/runtime-health', anchor: h1 },
@@ -77,3 +81,59 @@ for (const [persona, steps] of Object.entries(PATHS)) {
     expect(errors).toEqual([]);
   });
 }
+
+// The labels and orders the doc names, each checked against the screen it is on.
+const DOC = readFileSync('docs/demo-paths.md', 'utf8').replace(/\s+/g, ' ');
+
+test('the doc names the tiles in the order the app shows them', async ({ page }) => {
+  const tiles = ['Tests passing', 'Overdue', 'Due soon', 'Due later'];
+  expect(DOC).toContain('"Tests passing", "Overdue", "Due soon" and "Due later"');
+  await page.goto('/');
+  const figures = page.getByRole('region', { name: 'Key figures' });
+  const boxes = [];
+  for (const t of tiles) {
+    const link = figures.getByRole('link', { name: new RegExp(`^${t} [\\d%]+: `) });
+    await expect(link).toBeVisible();
+    boxes.push((await link.boundingBox())!);
+  }
+  for (let i = 1; i < boxes.length; i++) {
+    const [a, b] = [boxes[i - 1]!, boxes[i]!];
+    expect(Math.round(b.y) > Math.round(a.y) || b.x > a.x, tiles[i]).toBe(true);
+  }
+});
+
+test('the doc lineage step matches the deep trace', async ({ page }) => {
+  expect(DOC).toContain('Open "Runaway delegation stopped at depth 11"');
+  expect(DOC).toContain('"Not run"');
+  await page.goto('/lineage');
+  await page
+    .getByRole('combobox', { name: 'Trace' })
+    .selectOption({ label: 'Runaway delegation stopped at depth 11' });
+  await expect(page.getByRole('cell', { name: 'Not run', exact: true })).toBeVisible();
+});
+
+test('the doc quarantine step names the first row and the marker', async ({ page }) => {
+  expect(DOC).toContain('Open the first item, Q-1045');
+  expect(DOC).toContain('marked "Escalates soon"');
+  await page.goto('/quarantine');
+  await expect(
+    page.getByRole('row').nth(1).getByRole('button', { name: 'Open Q-1045' }),
+  ).toBeVisible();
+  await expect(page.getByText('Escalates soon').first()).toBeVisible();
+  await expect(page.getByText('About to escalate').first()).toBeVisible();
+});
+
+test('the doc auditor and packages steps match the app', async ({ page }) => {
+  expect(DOC).toContain('only lists those that cover at least one item of ISO/IEC 42001');
+  await page.goto('/auditor/AUD-2026-01');
+  await expect(
+    page.getByText('Only documents and policies that cover at least one item of ISO/IEC 42001'),
+  ).toBeVisible();
+
+  expect(DOC).toContain('numbered S-01 to S-13 without gaps');
+  await page.goto('/packages');
+  const numbers = page.getByTestId('section-number');
+  await expect(numbers).toHaveCount(13);
+  await expect(numbers.first()).toHaveText('S-01');
+  await expect(numbers.last()).toHaveText('S-13');
+});

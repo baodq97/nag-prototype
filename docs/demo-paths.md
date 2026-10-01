@@ -11,8 +11,9 @@ Goal: see where the organisation stands, find what is stale, and prepare for an 
 overstating anything.
 
 1. `/` shows the posture overview. Every screen opens with one line saying what it is for. Point
-   at the passing share of tests, the failing tests grouped by how close their due date is (four
-   are already overdue; each number opens the matching tests) and the trend line over 30 days.
+   at the passing share of tests, then the failing tests grouped by how close their due date is,
+   in the tiles "Tests passing", "Overdue", "Due soon" and "Due later" (four are already overdue;
+   each number opens the matching tests), and the trend line over 30 days.
    The chip at the top reads "Integration level: App context · Scenario S1".
 2. `/onboarding` explains that chip. Show the before/after base URL where only the host changes,
    the three integration levels with the tenant at App context (the MCP inspector is being
@@ -41,10 +42,13 @@ overstating anything.
    re-run the check.
 8. `/auditor/AUD-2026-01` is the audit tracker for the ISO/IEC 42001 surveillance audit. Point at
    the five evidence states, the flagged request about reviewer training records, and the list
-   of items whose document or policy is past its date.
+   of documents and policies past their date. The line under its heading says it only lists
+   those that cover at least one item of ISO/IEC 42001, the framework of this audit, which is
+   why it holds fewer items than steps 4 and 5.
 9. `/packages` shows the conformity package. The checklist cards count what is complete in the
    declaration, the deployer agreement and the supplier inputs; the assessment route starts at
-   self-assessment because the tenant is in scenario S1. Close by saying what the console
+   self-assessment because the tenant is in scenario S1, and its sections are numbered S-01 to
+   S-13 without gaps, in the export too. Close by saying what the console
    supports: readiness work, not a certificate.
 
 ## AI/ML Engineer
@@ -53,7 +57,8 @@ Goal: follow a failing check from the test down to the runtime that produced it,
 the safeguards do to a request.
 
 1. `/tests` lists every test with status and due date, failing ones first. The summary strip
-   shows the same figures as the posture page; select "Overdue" and point at the overdue tests,
+   shows the same figures as the posture page, in the same order; select "Overdue" and point at
+   the overdue tests,
    their framework chips and category tags.
 2. `/tests/TST-019` is "Quarantined items decided within 8 business hours". Show the row of
    facts (owner, last run, SLA, source, category), the failing entities with their due date, the
@@ -66,15 +71,19 @@ the safeguards do to a request.
    depend on it. Open "Configure scope" to show the servers and tools in scope, then open
    session MCP-S-302 in the Sessions card: its last tool call, a refund, was blocked fail-closed
    and the session was terminated.
-5. `/lineage` shows traces of agent calls. Open the trace that stops at depth 11 and point at the
-   rejected delegation, then the support agent trace with its tool calls that were cancelled,
-   failed or abandoned.
+5. `/lineage` shows traces of agent calls, one row per call, indented by depth. Open "Runaway
+   delegation stopped at depth 11": the whole chain of agents fits in the card, model calls end
+   their branch, and the rejected delegation at depth 11 shows in full, with "Not run" as its
+   duration in the table. Then open the support agent trace with its tool calls that were
+   cancelled, failed or abandoned.
 6. `/policy-bundles` lists the bundles by class. Point at the Art. 5 bundles that fail closed, the
    quarantine behaviour of the redaction bundle, and the legacy keyword list that was imported
    without a class or a budget.
-7. `/quarantine` is the human review queue. The Classifier card shows how a score maps to a
-   band. Open the first item, show its score next to the bound of its band, the 20-character
-   justification rule on approve and reject, and the expired items rejected by tenant policy.
+7. `/quarantine` is the human review queue, nearest next deadline first. The Classifier card
+   shows how a score maps to a band. The rows marked "Escalates soon" are the ones the "About to
+   escalate" tile counts. Open the first item, Q-1045, show its score next to the bound of its
+   band, the 20-character justification rule on approve and reject, and the expired items
+   rejected by tenant policy at the bottom of the table.
 
 ## Platform and SRE owner
 
@@ -107,5 +116,6 @@ fails.
    resuming needs two different roles and that the timeline records the refused second approval
    by the same role.
 8. `/integrations` lists the connections behind the runtime. The Connected tab puts the MCP
-   inspector in error on row 1, with its fix steps and the tests that depend on it. The Available
+   inspector in error on row 1, with its fix steps and the tests that depend on it; under each
+   name is its category, left out where it would repeat the name. The Available
    tab shows what else can be connected and what each would unlock; the connect flow is a stub.

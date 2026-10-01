@@ -4,18 +4,16 @@ import { useRouteDef } from './useRouteDef';
 
 /**
  * Every console screen: one h1, the route's one-line purpose, at most one "Demo data" badge and
- * at most one primary action on the right, then content. A screen's own description, if any,
- * follows the header as supporting text.
+ * at most one primary action on the right, then content. There is no slot for more text under
+ * the purpose: a screen explains its content in the body, next to that content.
  */
 export function Page({
   title,
-  description,
   demo = false,
   actions,
   children,
 }: {
   title: string;
-  description?: ReactNode;
   /** Forces the badge on a screen whose route entry does not set it. */
   demo?: boolean;
   /** The screen's primary action; keep it to one primary button. */
@@ -41,7 +39,6 @@ export function Page({
         </div>
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
       </header>
-      {description && <div className="-mt-2 max-w-3xl text-xs text-slate-600">{description}</div>}
       {children}
     </div>
   );
