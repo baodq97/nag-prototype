@@ -2,7 +2,7 @@
 // quarantine item, the kill switch dialog, the command search, the erasure confirmation and the
 // fallback mode confirmation in both directions. Each scan covers the whole page.
 
-import { expect, test } from '@playwright/test';
+import { type Page, expect, test } from '@playwright/test';
 import {
   ERASURE_SUBJECTS,
   controls,
@@ -150,6 +150,49 @@ for (const d of openDrawers) {
     await page.goto(d.path);
     await expect(page.getByRole('dialog')).toBeVisible();
     await expectNoSeriousA11y(page);
+    expect(errors).toEqual([]);
+  });
+}
+
+// A drawer focuses its heading, so no status chip gets focus and no tooltip opens by itself;
+// Escape closes it and returns focus to the button that opened it.
+const openers = [
+  {
+    kind: 'article',
+    path: '/coverage',
+    opener: (page: Page) => page.locator('tbody tr').first().getByRole('button').first(),
+  },
+  {
+    kind: 'control',
+    path: '/controls',
+    opener: (page: Page) => page.getByRole('button', { name: controls[0]!.id, exact: true }),
+  },
+  {
+    kind: 'MCP session',
+    path: '/integrations/int-mcp',
+    opener: (page: Page) => page.getByRole('button', { name: /^MCP-S-/ }).first(),
+  },
+  {
+    kind: 'quarantine item',
+    path: '/quarantine',
+    opener: (page: Page) => page.getByRole('button', { name: `Open ${quarantine[0]!.id}` }),
+  },
+];
+
+for (const o of openers) {
+  test(`the ${o.kind} drawer opens with focus on its heading and no tooltip`, async ({ page }) => {
+    const errors = collectErrors(page);
+    await page.goto(o.path);
+    const opener = o.opener(page);
+    await opener.click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('heading', { level: 2 }).first()).toBeFocused();
+    await expect(page.getByRole('tooltip')).toHaveCount(0);
+    await expectNoSeriousA11y(page);
+    await page.keyboard.press('Escape');
+    await expect(dialog).toBeHidden();
+    await expect(opener).toBeFocused();
     expect(errors).toEqual([]);
   });
 }
