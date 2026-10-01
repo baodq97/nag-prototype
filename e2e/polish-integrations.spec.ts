@@ -199,6 +199,10 @@ test('the connect flow runs four steps, labels the stubs and adds the source to 
   ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Connect', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Configure scope' })).toBeVisible();
+  // A source connected in the session shows as many activity entries as a seeded one.
+  await expect(
+    page.getByRole('list', { name: 'Recent activity' }).getByRole('listitem'),
+  ).toHaveCount(5);
   await page.reload();
   await expect(page.getByRole('button', { name: 'Connect', exact: true })).toBeVisible();
   expect(errors).toEqual([]);

@@ -33,13 +33,19 @@ function asConnected(source: Integration): Integration {
       lastRotatedAt: NOW,
     },
     health: { eventsPerMinute: 24, errorRatePct: 0 },
+    // As many entries as the seed keeps for a connected source, one per connect step.
     activity: [
-      { at: NOW, text: 'First heartbeat received' },
-      { at: NOW, text: 'Connection test passed' },
-      { at: NOW, text: 'Configuration applied' },
-    ],
+      'First heartbeat received',
+      'Connection test passed',
+      'Configuration applied',
+      'Collector key issued',
+      'Connection started',
+    ].map((text, i) => ({ at: minutesBefore(NOW, i), text })),
   };
 }
+
+const minutesBefore = (iso: string, minutes: number) =>
+  new Date(Date.parse(iso) - minutes * 60_000).toISOString();
 
 /** The seeded catalogue with this session's newly connected sources switched to connected. */
 export function useIntegrations(): Integration[] {
