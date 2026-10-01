@@ -40,3 +40,24 @@ it('finds no over-claiming wording in the source or UI text', () => {
   });
   expect(hits).toEqual([]);
 });
+
+// "tier" is always "risk tier" (also RiskTier, riskTiers, ALL_RISK_TIERS); the product's
+// deployment depth is called "integration level". A bare "tier" is a leftover of the old wording.
+const BARE_TIER = /(?<!risk[ _-])(?<!risk)(?<![a-z])tiers?(?![a-z])/gi;
+
+it('uses "tier" only as "risk tier"', () => {
+  const scanned = [
+    ...files(join(ROOT, 'src')),
+    ...files(join(ROOT, 'e2e')),
+    join(ROOT, 'index.html'),
+  ]
+    .map((path) => relative(ROOT, path))
+    .filter((path) => path !== SELF);
+  expect(scanned.length).toBeGreaterThan(20);
+  const hits = scanned.flatMap((path) =>
+    readFileSync(join(ROOT, path), 'utf8')
+      .split('\n')
+      .flatMap((line, i) => (line.match(BARE_TIER) ? [`${path}:${i + 1}: ${line.trim()}`] : [])),
+  );
+  expect(hits).toEqual([]);
+});

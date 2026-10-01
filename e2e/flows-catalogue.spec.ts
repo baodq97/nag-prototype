@@ -107,7 +107,12 @@ test('integration scope toggles hold their state while browsing', async ({ page 
 test('command-search deep link /coverage#aia-14 shows the row', async ({ page }) => {
   const errors = collectErrors(page);
   await page.goto('/coverage#aia-14');
-  await expect(page.locator('tr#aia-14')).toBeVisible();
-  expect(await page.locator('tbody tr').count()).toBe(9);
+  const row = page.locator('tr#aia-14');
+  await expect(row).toBeVisible();
+  await expect(row).toHaveClass(/bg-accent-50/);
+  await expect(
+    page.getByRole('dialog', { name: 'Art. 14 People overseeing the system' }),
+  ).toBeVisible();
+  expect(await page.locator('tbody tr').count()).toBe(57);
   expect(errors).toEqual([]);
 });
