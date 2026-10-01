@@ -92,7 +92,7 @@ const facets: Facet<ComplianceTest>[] = [
 const searchText = (t: ComplianceTest) =>
   `${t.id} ${t.name} ${personName(t.ownerId)} ${t.status} ${category(t)} ${itemRefs(t.frameworkItemIds)}`;
 
-const TILES = ['passing', 'overdue', 'needs-remediation', 'due-soon'] as const;
+const TILES = ['passing', 'overdue', 'due-soon', 'needs-remediation'] as const;
 type Tile = (typeof TILES)[number];
 const isTile = (v: string | null): v is Tile => TILES.includes(v as Tile);
 
@@ -106,14 +106,14 @@ const TILE_DEFS: (SummaryTile & { key: Tile })[] = [
     tone: 'success',
   },
   { key: 'overdue', label: 'Overdue', value: strip.overdue, icon: CircleX, tone: 'danger' },
+  { key: 'due-soon', label: 'Due soon', value: strip.dueSoon, icon: Clock, tone: 'warning' },
   {
     key: 'needs-remediation',
-    label: 'Needs remediation',
+    label: 'Due later',
     value: strip.needsRemediation,
     icon: Hourglass,
     tone: 'warning',
   },
-  { key: 'due-soon', label: 'Due soon', value: strip.dueSoon, icon: Clock, tone: 'warning' },
 ];
 
 export default function Screen() {

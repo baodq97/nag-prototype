@@ -10,7 +10,7 @@ import type { EvidenceRecord, RangeVerification } from '../../domain/types';
 import { lastVerification } from '../../seed/runtime';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
-import { DataTable, type Column, type Facet, type Sort } from '../../ui/DataTable';
+import { DataTable, ID_CELL, type Column, type Facet, type Sort } from '../../ui/DataTable';
 import { sortRows } from '../../ui/sort';
 import { Drawer } from '../../ui/Drawer';
 import { fmtDateTime } from '../../ui/format';
@@ -46,6 +46,7 @@ const columns = (open: (r: EvidenceRecord) => void): Column<EvidenceRecord>[] =>
   {
     key: 'seq',
     header: 'Seq',
+    id: true,
     sortValue: (r) => r.seq,
     render: (r) => (
       <button
@@ -211,7 +212,7 @@ function VerificationResults({
           <tbody className="divide-y divide-slate-100">
             {ranges.map((r) => (
               <tr key={r.fromSeq} data-testid={`range-${r.fromSeq}`}>
-                <th scope="row" className="px-2 py-1.5 font-mono text-sm font-medium">
+                <th scope="row" className={`px-2 py-1.5 font-mono text-sm font-medium ${ID_CELL}`}>
                   <Link
                     to={{ search: searchFor(r) }}
                     className="text-accent-700 underline-offset-2 hover:underline"

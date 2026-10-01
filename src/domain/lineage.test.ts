@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { lineage, traceNodes } from '../data';
 import { MAX_DEPTH, depths, isDepthAllowed, layoutTrace, parentLabel } from './lineage';
 import type { LineageNode } from './types';
 
@@ -52,6 +53,44 @@ describe('parentLabel', () => {
 
   it('returns Unknown parent, not the id, when the parent is not found', () => {
     expect(parentLabel(orphan, byId)).toBe('Unknown parent');
+  });
+});
+
+describe('seeded traces', () => {
+  const childCount = (id: string) => lineage.filter((x) => x.parentId === id).length;
+
+  it('has no model call or rejected call with children', () => {
+    const leaves = lineage.filter((x) => x.kind === 'llm' || x.kind === 'rejected');
+    expect(leaves.length).toBeGreaterThan(0);
+    for (const x of leaves) expect(childCount(x.id), `${x.traceId} ${x.label}`).toBe(0);
+  });
+
+  it('has MCP tool calls as leaves too', () => {
+    for (const x of lineage.filter((y) => y.kind === 'mcp-tool')) {
+      expect(childCount(x.id), x.label).toBe(0);
+    }
+  });
+
+  it('gives a rejected call no duration and every other call one', () => {
+    for (const x of lineage) {
+      if (x.kind === 'rejected') expect(x.durationMs, x.label).toBeUndefined();
+      else expect(x.durationMs, x.label).toBeGreaterThan(0);
+    }
+  });
+
+  it('reaches depth 10 accepted and 11 rejected in both deep traces', () => {
+    for (const id of ['TR-91c2', 'TR-b604']) {
+      const calls = traceNodes(id);
+      const d = depths(calls);
+      const accepted = calls.filter((x) => x.kind !== 'rejected');
+      expect(Math.max(...accepted.map((x) => d.get(x.id)!)), id).toBe(MAX_DEPTH);
+      const rejected = calls.filter((x) => x.kind === 'rejected');
+      if (id === 'TR-b604') {
+        expect(rejected.map((x) => d.get(x.id))).toEqual([MAX_DEPTH + 1]);
+      } else {
+        expect(rejected).toHaveLength(0);
+      }
+    }
   });
 });
 

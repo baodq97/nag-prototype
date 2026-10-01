@@ -1,5 +1,21 @@
 import { NOW } from '../../data';
 
+/**
+ * The items in the order of their next deadline, soonest first. Items without one (expired, or
+ * decided) follow in their given order.
+ */
+export function byNextDeadline<T>(
+  items: readonly T[],
+  deadline: (item: T) => string | undefined,
+): T[] {
+  const keyed = items.map((item) => {
+    const at = deadline(item);
+    return { item, at: at === undefined ? Infinity : Date.parse(at) };
+  });
+  // Array.prototype.sort is stable, so equal deadlines keep their given order.
+  return keyed.sort((a, b) => (a.at === b.at ? 0 : a.at < b.at ? -1 : 1)).map((k) => k.item);
+}
+
 /** "3 h 25 min" from a number of minutes. */
 export function fmtMinutes(minutes: number): string {
   const h = Math.floor(minutes / 60);

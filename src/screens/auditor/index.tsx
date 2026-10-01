@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 import { FRAMEWORK_NAMES, getAudit, getControl } from '../../data';
 import { Card } from '../../ui/Card';
+import { ID_CELL } from '../../ui/DataTable';
 import { Logo } from '../../ui/Logo';
 import { StatusChip } from '../../ui/StatusChip';
 import { fmtDate } from '../../ui/format';
@@ -118,11 +119,15 @@ export default function Screen() {
                 return (
                   <tr key={r.id} className="align-top">
                     <td className="px-4 py-2">
-                      <span className="mr-1.5 font-mono text-xs text-slate-600">{r.id}</span>
+                      <span className={`${ID_CELL} mr-1.5 font-mono text-xs text-slate-600`}>
+                        {r.id}
+                      </span>
                       {r.request}
                     </td>
                     <td className="px-4 py-2">
-                      <span className="mr-1.5 font-mono text-xs text-slate-600">{r.controlId}</span>
+                      <span className={`${ID_CELL} mr-1.5 font-mono text-xs text-slate-600`}>
+                        {r.controlId}
+                      </span>
                       {control?.name ?? ''}
                     </td>
                     <td className="px-4 py-2">
@@ -138,6 +143,11 @@ export default function Screen() {
       </Card>
 
       <Card title={`Documents and policies past their date (${stale.length})`} className="mt-5">
+        <p className="mb-3 text-xs text-slate-600">
+          Only documents and policies that cover at least one item of{' '}
+          {FRAMEWORK_NAMES[audit.framework]}, the framework of this audit. Other frameworks are not
+          listed here.
+        </p>
         {stale.length === 0 ? (
           <p className="text-sm text-slate-700">
             No approved document or policy for {FRAMEWORK_NAMES[audit.framework]} is past its date.
@@ -149,7 +159,7 @@ export default function Screen() {
           >
             {stale.map((r) => (
               <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
-                <span className="font-mono text-xs text-slate-600">{r.id}</span>
+                <span className={`${ID_CELL} font-mono text-xs text-slate-600`}>{r.id}</span>
                 <span className="font-medium">{r.name}</span>
                 <StatusChip status={r.state} />
                 <span className="text-xs text-slate-600">

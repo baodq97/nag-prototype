@@ -96,10 +96,7 @@ export default function Screen() {
   ];
 
   return (
-    <Page
-      title="Documents"
-      description="Compliance documents with their renewal cadence and approval status. Some carry a note from the assistant when the evidence does not show what a control needs."
-    >
+    <Page title="Documents">
       <DataTable
         label="documents"
         rows={documents}
@@ -111,6 +108,10 @@ export default function Screen() {
         }
         onRowClick={(d) => setOpen(d.id)}
       />
+      <p className="text-xs text-slate-600">
+        Flagged in the Assistant column: the evidence does not show what a control needs. Open the
+        document to read the note.
+      </p>
       <ObjectDrawer
         onClose={() => setOpen(null)}
         object={

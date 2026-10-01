@@ -74,6 +74,15 @@ export function escalationOf(receivedAt: string, now: string, tenant: Tenant): E
   return { level: 'expired', businessMinutes };
 }
 
+/**
+ * The next instant at which something happens to an item: its next escalation step, or its
+ * expiry once it is with the manager. None for an expired item and for one already decided.
+ */
+export function nextDeadline(escalation: Escalation, decided = false): string | undefined {
+  if (decided || escalation.level === 'expired') return undefined;
+  return escalation.nextAt;
+}
+
 /** Whether the next escalation step falls within `ABOUT_TO_ESCALATE_HOURS` business hours. */
 export function isAboutToEscalate(escalation: Escalation, now: string, tenant: Hours): boolean {
   if (!escalation.nextAt) return false;

@@ -114,9 +114,10 @@ async function descriptiveLines(page: Page): Promise<number> {
     const h1 = document.querySelector('h1')!;
     const header = h1.closest('header')!;
     const purpose = header.querySelectorAll('[data-testid="page-purpose"]').length;
-    // A screen's own description follows the header as a sibling block.
-    const own = header.nextElementSibling?.classList.contains('max-w-3xl') ? 1 : 0;
-    return purpose + own;
+    // Any other paragraph in the header, or one right after it, is a second descriptive line.
+    const others = header.querySelectorAll('p:not([data-testid="page-purpose"])').length;
+    const next = header.nextElementSibling?.tagName === 'P' ? 1 : 0;
+    return purpose + others + next;
   });
 }
 

@@ -142,10 +142,7 @@ export default function Screen() {
   const nextRole = open && nextIdx >= 0 ? chainOf(open)[nextIdx]?.role : undefined;
 
   return (
-    <Page
-      title="QMS library"
-      description="Thirteen quality management templates mapped to ISO/IEC 42001. Each one is approved in order: the drafter, then the Compliance Lead, then the CEO."
-    >
+    <Page title="QMS library">
       <DataTable
         label="templates"
         rows={qmsTemplates}
@@ -155,6 +152,9 @@ export default function Screen() {
         searchText={(t) => `${t.title} ${itemRefs(t.frameworkItemIds)} ${t.version}`}
         onRowClick={(t) => setOpenId(t.id)}
       />
+      <p className="text-xs text-slate-600">
+        Each template is approved in order: the drafter, then the Compliance Lead, then the CEO.
+      </p>
       <Drawer
         open={open !== undefined}
         onClose={() => setOpenId(null)}

@@ -1,5 +1,6 @@
 import { deployment } from '../../data';
 import { Card } from '../../ui/Card';
+import { ID_CELL } from '../../ui/DataTable';
 import { Page } from '../../ui/Page';
 import { StatusChip } from '../../ui/StatusChip';
 
@@ -32,11 +33,7 @@ function Snippet({ host }: { host: string }) {
 
 export default function Screen() {
   return (
-    <Page
-      title="Onboarding"
-      demo
-      description="How a team connects its model calls, how deep the integration goes and which assessment route applies. It supports compliance readiness and does not replace your own assessment."
-    >
+    <Page title="Onboarding" demo>
       <Card title="Connect">
         <p className="mb-3 text-sm text-slate-900">
           Point the client at the gateway instead of the model endpoint. Only the host changes; the
@@ -103,6 +100,7 @@ export default function Screen() {
       <Card title="Deployment scenarios">
         <p className="mb-3 text-sm text-slate-900">
           In both scenarios the provider signs the declaration of conformity. NAG never signs it.
+          The route shown supports compliance readiness and does not replace your own assessment.
         </p>
         <div className="overflow-x-auto rounded-lg border border-slate-200">
           <table className="w-full text-left text-sm">
@@ -125,7 +123,7 @@ export default function Screen() {
                 >
                   <th scope="row" className="px-3 py-2 font-medium text-slate-900">
                     <span className="flex flex-wrap items-center gap-2">
-                      {s.id}
+                      <span className={ID_CELL}>{s.id}</span>
                       {s.id === scenario.id && <StatusChip variant="info">Your tenant</StatusChip>}
                     </span>
                   </th>

@@ -203,11 +203,7 @@ export default function KillSwitchScreen() {
   const timeline = [...killSwitch.timeline].reverse();
 
   return (
-    <Page
-      title="Kill switch"
-      demo
-      description="Stops all AI traffic at the gateway. Activating needs an MFA step; resuming needs approvals from two distinct roles."
-    >
+    <Page title="Kill switch" demo>
       <Card title="State">
         <div className="flex flex-wrap items-center gap-3">
           <StatusChip variant={killSwitch.active ? 'danger' : 'success'}>
@@ -223,6 +219,10 @@ export default function KillSwitchScreen() {
             </Button>
           )}
         </div>
+        <p className="mt-3 text-xs text-slate-600">
+          Activating needs an MFA step. Resuming needs approvals from {RESUME_ROLES_NEEDED} distinct
+          roles.
+        </p>
       </Card>
       {killSwitch.active && <ResumePanel approvals={killSwitch.resumeApprovals} />}
       <Card title="Evidence timeline">

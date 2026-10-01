@@ -95,10 +95,7 @@ export default function Screen() {
   ];
 
   return (
-    <Page
-      title="Risk register"
-      description="Risk scenarios scored as likelihood × impact on a 1–5 scale, before and after treatment. Residual risk is never above inherent risk."
-    >
+    <Page title="Risk register">
       <DataTable
         label="risks"
         rows={risks}
@@ -108,6 +105,10 @@ export default function Screen() {
         searchText={(r) => `${r.id} ${r.scenario} ${r.category} ${personName(r.ownerId)}`}
         onRowClick={(r) => setOpen(r.id)}
       />
+      <p className="text-xs text-slate-600">
+        Each score is likelihood × impact, both on a 1–5 scale. Residual risk is never above
+        inherent risk.
+      </p>
       <ObjectDrawer
         onClose={() => setOpen(null)}
         object={

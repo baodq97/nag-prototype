@@ -71,10 +71,7 @@ export default function Screen() {
   ];
 
   return (
-    <Page
-      title="Policies"
-      description="Written policies with their version, approvers and renewal date."
-    >
+    <Page title="Policies">
       <DataTable
         label="policies"
         rows={policies}

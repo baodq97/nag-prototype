@@ -33,6 +33,7 @@ import type {
   RiskTier,
 } from '../../domain/types';
 import { Button } from '../../ui/Button';
+import { ID_CELL } from '../../ui/DataTable';
 import { Drawer } from '../../ui/Drawer';
 import { StubLabel } from '../../ui/Labels';
 import { fmtDate } from '../../ui/format';
@@ -506,7 +507,7 @@ export default function Screen() {
                         <button
                           type="button"
                           onClick={() => setOpen(row.id)}
-                          className="font-medium whitespace-nowrap text-accent-700 hover:underline"
+                          className={`font-medium text-accent-700 hover:underline ${ID_CELL}`}
                         >
                           {row.article}
                         </button>

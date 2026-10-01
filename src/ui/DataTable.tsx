@@ -2,9 +2,17 @@ import { ArrowDown, ArrowUp, ArrowUpDown, Search } from 'lucide-react';
 import { type ReactNode, useCallback, useId, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { Button } from './Button';
-import { type Column, type Sort, sortRows } from './sort';
+import { type Column as SortColumn, type Sort, sortRows } from './sort';
 
-export type { Column, Sort };
+export type { Sort };
+
+/** Keeps an object ID on one line; tables built without DataTable put it on their ID cells. */
+export const ID_CELL = 'whitespace-nowrap';
+
+export interface Column<T> extends SortColumn<T> {
+  /** The column shows an object ID, which must not wrap. */
+  id?: boolean;
+}
 
 export interface Facet<T> {
   key: string;
@@ -239,7 +247,7 @@ export function DataTable<T>({
                     key={c.key}
                     scope="col"
                     aria-sort={dir ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}
-                    className={`px-3 py-2 font-medium ${c.className ?? ''}`}
+                    className={`px-3 py-2 font-medium ${c.id ? ID_CELL : ''} ${c.className ?? ''}`}
                   >
                     {c.sortValue ? (
                       <button
@@ -278,7 +286,10 @@ export function DataTable<T>({
                 className={`h-12 hover:bg-slate-50 focus-within:bg-accent-50/60 ${onRowClick ? 'cursor-pointer' : ''}`}
               >
                 {columns.map((c) => (
-                  <td key={c.key} className={`px-3 py-2 align-middle ${c.className ?? ''}`}>
+                  <td
+                    key={c.key}
+                    className={`px-3 py-2 align-middle ${c.id ? ID_CELL : ''} ${c.className ?? ''}`}
+                  >
                     {c.render(r)}
                   </td>
                 ))}

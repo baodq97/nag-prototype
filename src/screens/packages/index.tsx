@@ -77,14 +77,26 @@ const GROUP_TITLES: Record<DeclarationGroup, string> = {
   supplier: 'Supplier inputs',
 };
 
+/**
+ * The number shown for a section is its place in the list for the chosen route (S-01, S-02, …),
+ * so the numbers have no gaps. The seed id is only an internal key. The list and the export both
+ * call this.
+ */
+const sectionNumber = (index: number) => `S-${String(index + 1).padStart(2, '0')}`;
+
 function SectionList({ sections }: { sections: PackageSection[] }) {
   return (
     <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 bg-white">
-      {sections.map((s) => (
+      {sections.map((s, i) => (
         <li key={s.id} className="flex items-start justify-between gap-3 px-4 py-2.5">
           <div className="min-w-0">
             <p className="text-sm font-medium text-slate-900">
-              <span className="mr-2 text-xs font-normal text-slate-600">{s.id}</span>
+              <span
+                className="mr-2 text-xs font-normal text-slate-600"
+                data-testid="section-number"
+              >
+                {sectionNumber(i)}
+              </span>
               {s.title}
             </p>
             <p className="text-xs text-slate-600">{s.summary}</p>
@@ -153,19 +165,21 @@ export default function Screen() {
             </p>
             <ul className="divide-y divide-slate-100">
               {g.elements.map((e) => (
-                <li key={e.id} className="flex items-start justify-between gap-2 py-2">
+                <li key={e.id} className="flex flex-col gap-1 py-2">
                   {e.state === 'missing' && e.href ? (
                     <Link
                       to={e.href}
                       data-testid="missing-item"
-                      className="min-w-0 text-sm font-medium text-accent-700 hover:underline"
+                      className="text-sm font-medium text-accent-700 hover:underline"
                     >
                       {e.title}
                     </Link>
                   ) : (
-                    <span className="min-w-0 text-sm text-slate-800">{e.title}</span>
+                    <span data-testid="checklist-name" className="text-sm text-slate-800">
+                      {e.title}
+                    </span>
                   )}
-                  <span className="flex shrink-0 flex-wrap justify-end gap-1">
+                  <span className="flex flex-wrap gap-1">
                     <SourceChip source={e.source} />
                     <StatusChip variant={e.state === 'complete' ? 'success' : 'warning'}>
                       {e.state === 'complete' ? 'Complete' : 'Missing'}
@@ -284,6 +298,17 @@ export default function Screen() {
             <Stat label="Controls" value={controls.length} />
             <Stat label="Sections" value={sections.length} />
           </div>
+          <ol
+            aria-label="Sections in this export"
+            className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-slate-700"
+          >
+            {sections.map((s, i) => (
+              <li key={s.id} data-testid="export-section">
+                <span className="mr-1.5 text-slate-600">{sectionNumber(i)}</span>
+                {s.title}
+              </li>
+            ))}
+          </ol>
           <p className="text-sm text-slate-800">Target: 1,000 records in under 60 s</p>
           <p className="text-xs text-slate-600">
             This is a design target, not a measurement. No file is produced in this prototype.

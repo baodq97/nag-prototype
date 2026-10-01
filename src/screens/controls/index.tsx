@@ -33,6 +33,7 @@ function columnsFor(open: (id: string) => void): Column<Control>[] {
     {
       key: 'id',
       header: 'ID',
+      id: true,
       sortValue: (c) => c.id,
       render: (c) => (
         <button
@@ -41,7 +42,7 @@ function columnsFor(open: (id: string) => void): Column<Control>[] {
             e.stopPropagation();
             open(c.id);
           }}
-          className="font-medium whitespace-nowrap text-accent-700 hover:underline"
+          className="font-medium text-accent-700 hover:underline"
         >
           {c.id}
         </button>

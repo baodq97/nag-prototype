@@ -1,5 +1,6 @@
-// Lineage polish (R17): the call table shows labels instead of ids, and the trace picker is wide
-// enough for the selected trace's full name at 1280×800.
+// Lineage polish at 1280×800: the call table shows labels instead of ids, the trace picker is wide
+// enough for the selected trace's full name, and the whole call graph of each deep trace fits its
+// card with readable labels.
 
 import { expect, test } from '@playwright/test';
 import { traceNodes, traces } from '../src/data';
@@ -37,6 +38,73 @@ test('the call table never shows a call id and marks each root once', async ({ p
   }
   expect(errors).toEqual([]);
 });
+
+for (const traceId of ['TR-91c2', 'TR-b604']) {
+  const trace = traces.find((t) => t.id === traceId)!;
+
+  test(`the whole call graph of "${trace.name}" fits its card, readable`, async ({ page }) => {
+    const errors = collectErrors(page);
+    await page.goto('/lineage');
+    await page.getByLabel('Trace').selectOption(traceId);
+
+    const graph = page.getByTestId('call-graph');
+    const card = page.locator('section', { has: graph });
+    const calls = traceNodes(traceId);
+    const nodes = graph.getByTestId('call-node');
+    await expect(nodes).toHaveCount(calls.length);
+
+    const overflow = await graph.evaluate((el) => el.scrollWidth - el.clientWidth);
+    const cardOverflow = await card.evaluate((el) => el.scrollWidth - el.clientWidth);
+    console.log(`${trace.name}: graph overflow ${overflow} px, card overflow ${cardOverflow} px`);
+    expect(overflow, 'graph horizontal overflow').toBeLessThanOrEqual(0);
+    expect(cardOverflow, 'card horizontal overflow').toBeLessThanOrEqual(0);
+
+    // Every node lies inside the card, not just the rejected one.
+    const cardBox = (await card.boundingBox())!;
+    for (let i = 0; i < calls.length; i++) {
+      const box = (await nodes.nth(i).boundingBox())!;
+      expect(box.x, `node ${i} left edge`).toBeGreaterThanOrEqual(cardBox.x);
+      expect(box.x + box.width, `node ${i} right edge`).toBeLessThanOrEqual(
+        cardBox.x + cardBox.width,
+      );
+      expect(box.y, `node ${i} top edge`).toBeGreaterThanOrEqual(cardBox.y);
+      expect(box.y + box.height, `node ${i} bottom edge`).toBeLessThanOrEqual(
+        cardBox.y + cardBox.height,
+      );
+    }
+
+    // Labels keep a readable size, and each node still names its kind and outcome.
+    const sizes = await graph
+      .locator('[data-testid="call-node"] div')
+      .evaluateAll((els) => els.map((el) => parseFloat(getComputedStyle(el).fontSize)));
+    expect(Math.min(...sizes), 'smallest node font size').toBeGreaterThanOrEqual(12);
+    for (const [i, call] of calls.entries()) {
+      const text = await nodes.nth(i).innerText();
+      expect(text, call.label).toContain(call.label);
+      expect(text, call.label).toMatch(/Agent|Model call|MCP tool call|Rejected call/);
+      expect(text, call.label).toMatch(/Success|Error|Cancelled|Abandoned/);
+    }
+
+    // Depth is a fixed indent of at most 32 px per level.
+    const lefts = await nodes.evaluateAll((els) =>
+      els.map((el) => el.getBoundingClientRect().left),
+    );
+    const items = await graph
+      .locator('li[data-depth]')
+      .evaluateAll((els) => els.map((el) => Number((el as HTMLElement).dataset.depth)));
+    const base = Math.min(...lefts);
+    for (const [i, left] of lefts.entries()) {
+      expect(left - base, `node ${i} indent`).toBeLessThanOrEqual((items[i]! - 1) * 32);
+    }
+
+    if (traceId === 'TR-b604') {
+      const rejected = graph.getByTestId('call-node').filter({ hasText: 'Rejected call' });
+      await expect(rejected).toHaveCount(1);
+      await expect(page.getByRole('row', { name: /Rejected call/ })).toContainText('Not run');
+    }
+    expect(errors).toEqual([]);
+  });
+}
 
 test('the trace picker is wide enough for the selected trace name', async ({ page }) => {
   const errors = collectErrors(page);

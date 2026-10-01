@@ -28,16 +28,7 @@ export default function Screen() {
   };
 
   return (
-    <Page
-      title="Assistant"
-      demo
-      description={
-        <>
-          <StubLabel what="Assistant answer engine" /> It answers only from demo data, by
-          deterministic matching of your question. It does not generate text.
-        </>
-      }
-    >
+    <Page title="Assistant" demo>
       <Card title="Suggested questions">
         <ul className="flex flex-wrap gap-2">
           {SUGGESTED_QUESTIONS.map((q) => (
@@ -52,6 +43,10 @@ export default function Screen() {
 
       <Card title="Conversation">
         <div className="flex flex-col gap-4">
+          <p className="text-xs text-slate-600">
+            <StubLabel what="Assistant answer engine" /> It answers only from demo data, by
+            deterministic matching of your question. It does not generate text.
+          </p>
           {turns.length === 0 && (
             <p className="text-sm text-slate-600">
               No questions yet. Pick a suggested question or type your own.
