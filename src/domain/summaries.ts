@@ -154,7 +154,7 @@ export interface VerificationSummary {
   total: number;
   /** The first failing range and the sequence number its chain layer names, if any. */
   gap?: { seq: number | null; fromSeq: number; toSeq: number };
-  /** "3 of 4 ranges verify; gap at seq 137 in 101–150". */
+  /** "4 of 5 ranges verify; gap at seq 137 in 101–150". */
   line: string;
 }
 
