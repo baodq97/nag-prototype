@@ -597,7 +597,7 @@ const TRANSPARENCY_ROWS: Line[] = [
     '50(3)',
     'Notice for emotion recognition and biometric categorisation',
     NA,
-    MUST,
+    onlyIf('the system recognises emotions or sorts people into biometric categories'),
     'supports',
     'Blocks biometric categorisation that no policy bundle allows.',
     'Inform the people exposed and process their data lawfully.',
@@ -606,10 +606,12 @@ const TRANSPARENCY_ROWS: Line[] = [
     '50(4)',
     'Disclosing deep fakes and generated public text',
     NA,
-    MUST,
+    onlyIf(
+      'the system generates or manipulates deep fakes, or publishes generated text on matters of public interest that no person reviewed and took editorial responsibility for',
+    ),
     'supports',
     'Records generated output as input for the disclosure.',
-    'Disclose that a deep fake was generated or manipulated. For generated text on matters of public interest, disclose it only if no person reviewed it and took editorial responsibility.',
+    'Disclose that the content was generated or manipulated by AI.',
   ],
   [
     '50(5)',
