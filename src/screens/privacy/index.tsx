@@ -39,6 +39,7 @@ function ContentLogging() {
                 </span>
                 <Toggle
                   label={`Content logging for ${ep.name}`}
+                  hideLabel
                   checked={on}
                   onChange={(next) =>
                     updateSession((s) => ({
