@@ -4,7 +4,7 @@ import {
   NOW,
   frameworkItems,
   tenant,
-  trustCategories,
+  trustEntries,
   trustUpdatedAt,
 } from '../../data';
 import { updatedAgo } from '../../domain/time';
@@ -106,15 +106,30 @@ export default function Screen() {
           <h2 id="trust-controls" className="text-lg font-semibold">
             Controls by category
           </h2>
-          {trustCategories.map((cat) => (
+          <p className="text-sm text-slate-700">
+            Each status is worked out from the live state of our compliance console, not set by
+            hand: whether the tests behind a control pass, whether the policies and documents behind
+            it are approved and reviewed on time, and whether the evidence records verify. “In
+            place” means every check behind the claim passes. “Under remediation” means a check
+            behind the claim currently fails, even when the work is still planned. “In progress”
+            means the work is planned and not finished, and no check behind it fails.
+          </p>
+          {trustEntries().map((cat) => (
             <Card key={cat.id} title={cat.name}>
               <ul className="flex flex-col gap-2">
-                {cat.controls.map((c) => (
+                {cat.entries.map((c) => (
                   <li
                     key={c.name}
                     className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 text-sm"
                   >
-                    <span className="min-w-0 flex-1 basis-48">{c.name}</span>
+                    <div className="min-w-0 flex-1 basis-48">
+                      <span>{c.name}</span>
+                      {c.status === 'under-remediation' && (
+                        <p className="mt-0.5 text-xs text-slate-600">
+                          A check behind this claim currently fails.
+                        </p>
+                      )}
+                    </div>
                     <StatusChip status={c.status} />
                   </li>
                 ))}

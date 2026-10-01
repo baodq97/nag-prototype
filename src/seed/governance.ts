@@ -413,49 +413,61 @@ export const audits: Audit[] = [
   },
 ];
 
+const control = (id: string) => ({ kind: 'control' as const, id });
+const policy = (id: string) => ({ kind: 'policy' as const, id });
+const doc = (id: string) => ({ kind: 'document' as const, id });
+
+// Each public claim points at the console objects it rests on; `src/domain/claims.ts`
+// derives the status the trust page shows from them.
 export const trustCategories: TrustCategory[] = [
   {
     id: 'runtime',
     name: 'Runtime safeguards',
-    controls: [
-      { name: 'Prohibited practices blocked at the gateway', status: 'in-place' },
-      { name: 'Human review of uncertain output', status: 'in-place' },
-      { name: 'Emergency stop with dual approval to resume', status: 'in-place' },
-      { name: 'Agent call depth limit', status: 'in-place' },
+    entries: [
+      { name: 'Prohibited practices blocked at the gateway', refs: [control('CTL-01')] },
+      { name: 'Human review of uncertain output', refs: [control('CTL-10')] },
+      { name: 'Emergency stop with dual approval to resume', refs: [control('CTL-12')] },
+      { name: 'Agent call depth limit', refs: [control('CTL-13')] },
     ],
   },
   {
     id: 'evidence',
     name: 'Evidence and logging',
-    controls: [
-      { name: 'Tamper-evident records with three integrity layers', status: 'in-place' },
-      { name: 'Independent timestamp anchoring', status: 'in-progress' },
-      { name: 'Offline verification guide for assessors', status: 'in-place' },
+    entries: [
+      {
+        name: 'Tamper-evident records with three integrity layers',
+        refs: [control('CTL-06'), { kind: 'verification' }],
+      },
+      { name: 'Independent timestamp anchoring', refs: [control('CTL-06')], planned: true },
+      { name: 'Offline verification guide for assessors', refs: [doc('DOC-01')] },
     ],
   },
   {
     id: 'governance',
     name: 'Governance',
-    controls: [
-      { name: 'AI policy approved by leadership', status: 'in-place' },
-      { name: 'Risk register reviewed quarterly', status: 'in-place' },
-      { name: 'Internal audit programme', status: 'in-progress' },
+    entries: [
+      { name: 'AI policy approved by leadership', refs: [control('CTL-18'), policy('POL-01')] },
+      { name: 'Risk register reviewed quarterly', refs: [control('CTL-02'), policy('POL-04')] },
+      { name: 'Internal audit programme', refs: [control('CTL-25')], planned: true },
     ],
   },
   {
     id: 'privacy',
     name: 'Privacy',
-    controls: [
-      { name: 'Metadata and keyed digests only, by default', status: 'in-place' },
-      { name: 'Erasure by key destruction', status: 'in-place' },
+    entries: [
+      {
+        name: 'Metadata and keyed digests only, by default',
+        refs: [control('CTL-27'), policy('POL-05')],
+      },
+      { name: 'Erasure by key destruction', refs: [control('CTL-28'), policy('POL-05')] },
     ],
   },
   {
     id: 'security',
     name: 'Security',
-    controls: [
-      { name: 'MCP server allow-list', status: 'in-progress' },
-      { name: 'Prompt-injection screening', status: 'in-place' },
+    entries: [
+      { name: 'MCP server allow-list', refs: [control('CTL-14')] },
+      { name: 'Prompt-injection screening', refs: [control('CTL-15')] },
     ],
   },
 ];

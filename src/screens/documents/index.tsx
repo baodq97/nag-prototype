@@ -1,12 +1,14 @@
 import { Sparkles } from 'lucide-react';
-import { documents, getDocument, itemRefs, personName } from '../../data';
-import type { ComplianceDocument } from '../../domain/types';
+import { documentReview, documents, getDocument, itemRefs, personName } from '../../data';
+import { REVIEW_STATE_LABEL } from '../../domain/review';
+import type { ComplianceDocument, ReviewState } from '../../domain/types';
 import { type Column, DataTable, type Facet } from '../../ui/DataTable';
 import { fmtDate } from '../../ui/format';
 import { StubLabel } from '../../ui/Labels';
 import { ObjectDrawer } from '../../ui/ObjectDrawer';
 import { Page } from '../../ui/Page';
 import { StatusChip } from '../../ui/StatusChip';
+import { humanize } from '../../ui/status';
 import { useOpenParam } from '../../ui/useOpenParam';
 
 const CADENCE: Record<ComplianceDocument['cadence'], string> = {
@@ -15,8 +17,16 @@ const CADENCE: Record<ComplianceDocument['cadence'], string> = {
   annual: 'Annual',
 };
 
+/** What the status reads: "Review overdue" replaces "Approved" once the review date has passed. */
+const shownStatus = (d: ComplianceDocument) => {
+  const review = documentReview(d);
+  return review === 'current' ? d.status : review;
+};
+const statusLabel = (s: string) =>
+  s in REVIEW_STATE_LABEL ? REVIEW_STATE_LABEL[s as ReviewState] : humanize(s);
+
 const facets: Facet<ComplianceDocument>[] = [
-  { key: 'status', label: 'Status', value: (d) => d.status },
+  { key: 'status', label: 'Status', value: shownStatus, format: statusLabel },
   { key: 'cadence', label: 'Cadence', value: (d) => d.cadence },
   { key: 'owner', label: 'Owner', value: (d) => personName(d.ownerId) },
 ];
@@ -49,8 +59,8 @@ export default function Screen() {
     {
       key: 'status',
       header: 'Status',
-      sortValue: (d) => d.status,
-      render: (d) => <StatusChip status={d.status} />,
+      sortValue: shownStatus,
+      render: (d) => <StatusChip status={shownStatus(d)} />,
     },
     {
       key: 'cadence',
@@ -97,7 +107,7 @@ export default function Screen() {
         facets={facets}
         rowKey={(d) => d.id}
         searchText={(d) =>
-          `${d.id} ${d.name} ${personName(d.ownerId)} ${itemRefs(d.frameworkItemIds)}`
+          `${d.id} ${d.name} ${statusLabel(shownStatus(d))} ${personName(d.ownerId)} ${itemRefs(d.frameworkItemIds)}`
         }
         onRowClick={(d) => setOpen(d.id)}
       />
@@ -109,7 +119,7 @@ export default function Screen() {
             kind: 'Document',
             title: open.name,
             owner: personName(open.ownerId),
-            status: open.status,
+            status: shownStatus(open),
             due: { label: 'Next review', value: fmtDate(open.nextReview) },
             frameworkItemIds: open.frameworkItemIds,
             history: open.history,

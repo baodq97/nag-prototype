@@ -2,7 +2,10 @@
 // would plug in behind these functions.
 
 import type { AssistantContext } from '../domain/assistant';
+import { type DerivedCategory, deriveTrust } from '../domain/claims';
+import { erasureLayers } from '../domain/erasure';
 import { escalationOf } from '../domain/escalation';
+import { blastRadius, breachTotals, stageHealth } from '../domain/health';
 import { integrationUnlocks } from '../domain/integrations';
 import {
   attentionCounts,
@@ -11,12 +14,16 @@ import {
   postureTrend,
   testPassingPct,
 } from '../domain/posture';
+import { documentReviewState, policyRenewalState } from '../domain/review';
 import { verifyRanges } from '../domain/verification';
 import type {
+  ComplianceDocument,
   Control,
   FrameworkId,
   FrameworkItem,
+  Policy,
   QuarantineItem,
+  ReviewState,
   SearchEntry,
 } from '../domain/types';
 import {
@@ -39,9 +46,13 @@ import {
   trustCategories,
 } from '../seed/governance';
 import {
+  ERASURE_SUBJECTS,
+  circuitBreaker,
+  defaultFallbackMode,
   evidence,
   latencyProfiles,
   lineage,
+  pipelineStages,
   policyBundles,
   privacyEndpoints,
   quarantine,
@@ -49,11 +60,13 @@ import {
 } from '../seed/runtime';
 
 export {
+  ERASURE_SUBJECTS,
   NOW,
   audits,
   controls,
   coverage,
   currentUserId,
+  defaultFallbackMode,
   detectionQuality,
   documents,
   evidence,
@@ -73,7 +86,6 @@ export {
   tenant,
   tests,
   traces,
-  trustCategories,
   trustUpdatedAt,
 };
 
@@ -142,6 +154,49 @@ export function escalationFor(item: QuarantineItem) {
 
 export function verification() {
   return verifyRanges(evidence);
+}
+
+export function documentReview(doc: ComplianceDocument): ReviewState {
+  return documentReviewState(doc, NOW, tenant.timeZone);
+}
+
+export function policyRenewal(policy: Policy): ReviewState {
+  return policyRenewalState(policy, NOW, tenant.timeZone);
+}
+
+/** How many approved documents and policies are past their review or renewal date. */
+export function reviewCounts() {
+  return {
+    documentsOverdue: documents.filter((d) => documentReview(d) === 'review-overdue').length,
+    policiesExpired: policies.filter((p) => policyRenewal(p) === 'renewal-expired').length,
+  };
+}
+
+/** The public trust claims with the status each derives from the console state. */
+export function trustEntries(): DerivedCategory[] {
+  return deriveTrust(trustCategories, {
+    controls: controlsById,
+    tests: testsById,
+    documents: byId(documents),
+    policies: byId(policies),
+    ranges: verification(),
+    now: NOW,
+    timeZone: tenant.timeZone,
+  });
+}
+
+/** The three evidence layers of every range that holds a record of the subject. */
+export function erasureFor(subjectId: string) {
+  return erasureLayers(subjectId, evidence, verification());
+}
+
+export function runtimeHealth() {
+  return {
+    stages: pipelineStages.map(stageHealth),
+    totals: breachTotals(pipelineStages),
+    blastRadius: blastRadius(policyBundles),
+    breaker: circuitBreaker,
+  };
 }
 
 export function traceNodes(traceId: string) {

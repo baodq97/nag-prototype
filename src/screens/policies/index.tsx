@@ -1,16 +1,26 @@
-import { getPolicy, itemRefs, personName, policies } from '../../data';
-import type { Policy } from '../../domain/types';
+import { getPolicy, itemRefs, personName, policies, policyRenewal } from '../../data';
+import { REVIEW_STATE_LABEL } from '../../domain/review';
+import type { Policy, ReviewState } from '../../domain/types';
 import { type Column, DataTable, type Facet } from '../../ui/DataTable';
 import { fmtDate } from '../../ui/format';
 import { ObjectDrawer } from '../../ui/ObjectDrawer';
 import { Page } from '../../ui/Page';
 import { StatusChip } from '../../ui/StatusChip';
+import { humanize } from '../../ui/status';
 import { useOpenParam } from '../../ui/useOpenParam';
 
 const approvers = (p: Policy) => p.approverIds.map(personName).join(', ');
 
+/** What the status reads: "Expired" replaces "Approved" once the renewal date has passed. */
+const shownStatus = (p: Policy) => {
+  const renewal = policyRenewal(p);
+  return renewal === 'current' ? p.status : renewal;
+};
+const statusLabel = (s: string) =>
+  s in REVIEW_STATE_LABEL ? REVIEW_STATE_LABEL[s as ReviewState] : humanize(s);
+
 const facets: Facet<Policy>[] = [
-  { key: 'status', label: 'Status', value: (p) => p.status },
+  { key: 'status', label: 'Status', value: shownStatus, format: statusLabel },
   { key: 'owner', label: 'Owner', value: (p) => personName(p.ownerId) },
 ];
 
@@ -55,8 +65,8 @@ export default function Screen() {
     {
       key: 'status',
       header: 'Status',
-      sortValue: (p) => p.status,
-      render: (p) => <StatusChip status={p.status} />,
+      sortValue: shownStatus,
+      render: (p) => <StatusChip status={shownStatus(p)} />,
     },
   ];
 
@@ -71,7 +81,9 @@ export default function Screen() {
         columns={columns}
         facets={facets}
         rowKey={(p) => p.id}
-        searchText={(p) => `${p.id} ${p.name} ${personName(p.ownerId)} ${approvers(p)}`}
+        searchText={(p) =>
+          `${p.id} ${p.name} ${statusLabel(shownStatus(p))} ${personName(p.ownerId)} ${approvers(p)}`
+        }
         onRowClick={(p) => setOpen(p.id)}
       />
       <ObjectDrawer
@@ -82,7 +94,7 @@ export default function Screen() {
             kind: 'Policy',
             title: open.name,
             owner: personName(open.ownerId),
-            status: open.status,
+            status: shownStatus(open),
             due: { label: 'Renewal', value: fmtDate(open.renewalDate) },
             frameworkItemIds: open.frameworkItemIds,
             history: open.history,

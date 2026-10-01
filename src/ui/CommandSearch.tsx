@@ -1,10 +1,25 @@
 import { Search } from 'lucide-react';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { searchIndex } from '../data';
+import { documentReview, getDocument, getPolicy, policyRenewal, searchIndex } from '../data';
 import { search } from '../domain/search';
+import type { ReviewState } from '../domain/types';
+import { StatusChip } from './StatusChip';
 import { useDialog } from './useDialog';
 import { humanize } from './status';
+
+/** The review state of a document or policy result; every other kind is always current. */
+function reviewOf(entry: { kind: string; id: string }): ReviewState {
+  if (entry.kind === 'document') {
+    const doc = getDocument(entry.id);
+    return doc ? documentReview(doc) : 'current';
+  }
+  if (entry.kind === 'policy') {
+    const policy = getPolicy(entry.id);
+    return policy ? policyRenewal(policy) : 'current';
+  }
+  return 'current';
+}
 
 /** Ctrl/Cmd+K search over tests, controls, documents, policies, risks and articles. */
 export function CommandSearch() {
@@ -99,7 +114,8 @@ export function CommandSearch() {
                   className={`flex cursor-pointer items-center justify-between gap-3 px-3 py-2 text-sm ${i === active ? 'bg-accent-50' : ''}`}
                 >
                   <span className="truncate">{r.label}</span>
-                  <span className="shrink-0 text-xs text-slate-600">
+                  <span className="flex shrink-0 items-center gap-2 text-xs text-slate-600">
+                    {reviewOf(r) !== 'current' && <StatusChip status={reviewOf(r)} />}
                     {humanize(r.kind)} · {r.id}
                   </span>
                 </li>
