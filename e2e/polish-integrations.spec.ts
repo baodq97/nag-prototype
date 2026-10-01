@@ -261,7 +261,8 @@ test('the scope of a gateway holds its state while browsing, and cancel discards
   // Browsing away and back keeps the saved choice (a reload would not: it lasts for the session).
   await page.getByRole('link', { name: 'All integrations' }).click();
   await page.getByRole('link', { name: 'Manage Reverse proxy gateway' }).click();
-  await page.getByRole('button', { name: 'Configure scope' }).click();
+  await expect(page).toHaveURL(/\/integrations\/int-proxy$/);
+  await page.getByRole('button', { name: 'Configure scope', exact: true }).click();
   await expect(
     page.getByRole('dialog').getByRole('switch', { name: 'Internal sandbox' }),
   ).toHaveAttribute('aria-checked', 'true');
