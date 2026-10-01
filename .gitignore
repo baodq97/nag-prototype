@@ -1,0 +1,4 @@
+.raws/
+CLAUDE.local.md
+.claude/worktrees/
+.claude/settings.local.json
