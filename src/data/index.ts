@@ -1,7 +1,7 @@
 // Read-only selectors over the seed. Screens import data only from here; a real backend
 // would plug in behind these functions.
 
-import { appliesTo, coverageStatus } from '../domain/aiact';
+import { appliesTo, attentionFor, coverageStatus } from '../domain/aiact';
 import type { AssistantContext } from '../domain/assistant';
 import { type DerivedCategory, deriveTrust } from '../domain/claims';
 import { classify } from '../domain/classification';
@@ -230,11 +230,14 @@ const linkedTo = (itemId: string) => ({
 
 const rows: CoverageRow[] = articleMap.map((row) => {
   const links = linkedTo(row.id);
-  const controlsOk = links.controlIds.map((id) => controlStatus(controlsById.get(id)!).ok);
+  const linked = links.controlIds.map((id) => controlsById.get(id)!);
+  const controlsOk = linked.map((c) => controlStatus(c).ok);
+  const attention = attentionFor(linked, (id) => testsById.get(id)?.status === 'failing');
   return {
     ...row,
     ...links,
     status: coverageStatus(row.nagRole, controlsOk, links.testIds.length),
+    ...(attention && { attention }),
   };
 });
 const rowsById = byId(rows);

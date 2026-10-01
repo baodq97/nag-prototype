@@ -2,7 +2,7 @@
 // risk tier, role and applicable articles, on to the article coverage table and who owes what.
 
 import { expect, test, type Page } from '@playwright/test';
-import { rowsForSystem } from '../src/data';
+import { articleRows, getControl, getTest, rowsForSystem } from '../src/data';
 import { dutyLabel } from '../src/domain/aiact';
 import { articleMap } from '../src/seed/articles';
 import { collectErrors } from './helpers';
@@ -195,5 +195,28 @@ test('the NAG role filter lists the three articles outside NAG scope', async ({ 
     await expect(page.locator(`tr#${id}`)).toBeVisible();
   }
   await expect(page.getByText('Showing 3 of 57 articles')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('every article that needs attention says why and links to the failing test', async ({
+  page,
+}) => {
+  const errors = collectErrors(page);
+  const attention = articleRows().filter((r) => r.status === 'needs-attention');
+  await page.goto('/coverage?status=needs-attention');
+  await expect(page.locator('tbody tr')).toHaveCount(attention.length);
+  for (const row of attention) {
+    const failing = getTest(row.attention!.testId)!;
+    const line = page.locator(`tr#${row.id}`).getByTestId('attention-line');
+    await expect(line, row.id).toContainText(getControl(row.attention!.controlId)!.name);
+    await expect(line.getByRole('link', { name: failing.name }), row.id).toHaveAttribute(
+      'href',
+      `/tests/${failing.id}`,
+    );
+  }
+
+  const art14 = attention.find((r) => r.id === 'aia-14')!;
+  await page.locator('tr#aia-14').getByTestId('attention-line').getByRole('link').click();
+  await expect(page).toHaveURL(new RegExp(`/tests/${art14.attention!.testId}$`));
   expect(errors).toEqual([]);
 });

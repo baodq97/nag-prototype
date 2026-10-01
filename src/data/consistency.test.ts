@@ -173,12 +173,20 @@ describe('article map and AI systems', () => {
     }
     expect(ids('control').sort()).toEqual(
       [
+        'aia-9',
         'aia-12',
         'aia-14',
+        'aia-15',
         'aia-19',
         'aia-20',
+        'aia-21',
+        'aia-25',
+        'aia-26-1',
+        'aia-26-2',
+        'aia-26-4',
         'aia-26-5',
         'aia-26-6',
+        'aia-43-4',
         'aia-72',
         'aia-73',
         'aia-86',
@@ -206,6 +214,18 @@ describe('article map and AI systems', () => {
     const humanReview = allEntries().find((e) => e.name === 'Human review of uncertain output');
     expect(humanReview?.status).toBe('under-remediation');
     expect(articleRows().find((r) => r.id === 'aia-14')?.status).toBe('needs-attention');
+  });
+
+  it('says on every row that needs attention which linked control and test fail', () => {
+    for (const row of articleRows()) {
+      expect(Boolean(row.attention), row.id).toBe(row.status === 'needs-attention');
+      if (!row.attention) continue;
+      const { controlId, testId } = row.attention;
+      expect(row.controlIds, row.id).toContain(controlId);
+      expect(controlStatus(getControl(controlId)!).ok, row.id).toBe(false);
+      expect(getControl(controlId)!.testIds, row.id).toContain(testId);
+      expect(getTest(testId)?.status, row.id).toBe('failing');
+    }
   });
 
   it('shows each system the risk tier and role its answers give', () => {

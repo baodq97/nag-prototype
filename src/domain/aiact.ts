@@ -8,6 +8,8 @@ import type {
   ApplicationDate,
   ArticleRow,
   Classification,
+  Control,
+  CoverageAttention,
   CoverageStatus,
   Duty,
   IncidentKind,
@@ -61,6 +63,21 @@ export function coverageStatus(
   if (controlsOk.some((ok) => !ok)) return 'needs-attention';
   if (nagRole === 'control' && controlsOk.length > 0 && testCount > 0) return 'covered';
   return 'shared';
+}
+
+/**
+ * The next step on a row that needs attention: the first linked control with a failing test,
+ * and that test. Undefined while every linked control passes.
+ */
+export function attentionFor(
+  controls: Pick<Control, 'id' | 'testIds'>[],
+  isFailing: (testId: string) => boolean,
+): CoverageAttention | undefined {
+  for (const control of controls) {
+    const testId = control.testIds.find(isFailing);
+    if (testId) return { controlId: control.id, testId };
+  }
+  return undefined;
 }
 
 /** Role filter of the coverage table: one role, or "both" for a row either role owes. */

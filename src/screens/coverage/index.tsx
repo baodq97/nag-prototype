@@ -36,6 +36,7 @@ import { StubLabel } from '../../ui/Labels';
 import { Page } from '../../ui/Page';
 import { StatusChip } from '../../ui/StatusChip';
 import { useOpenParam } from '../../ui/useOpenParam';
+import { AttentionLine } from './AttentionLine';
 
 const LINK = 'text-accent-700 hover:underline';
 
@@ -199,6 +200,11 @@ function RowDrawerBody({ row, dates }: { row: CoverageRow; dates: ApplicationDat
       </dl>
       {row.outsideReason && (
         <Section title="Why NAG does not cover this">{row.outsideReason}</Section>
+      )}
+      {row.attention && (
+        <Section title="Why it needs attention">
+          <AttentionLine attention={row.attention} />
+        </Section>
       )}
       <Section title="What NAG does">{row.nagDoes}</Section>
       <Section title="What stays with you">{row.customerKeeps}</Section>
@@ -445,6 +451,7 @@ export default function Screen() {
                   </td>
                   <td className="px-3 py-2 align-top">
                     <StatusChip status={row.status}>{COVERAGE_STATUS_LABEL[row.status]}</StatusChip>
+                    {row.attention && <AttentionLine attention={row.attention} />}
                   </td>
                 </tr>
               ))}

@@ -16,6 +16,7 @@ import { DemoLabel } from '../../ui/Labels';
 import { Page } from '../../ui/Page';
 import { StatusChip } from '../../ui/StatusChip';
 import { useOpenParam } from '../../ui/useOpenParam';
+import { AttentionLine } from '../coverage/AttentionLine';
 
 const DISCOVERY_LABEL = {
   gateway: 'Discovered from gateway traffic',
@@ -75,6 +76,7 @@ function ArticleItem({ row, system }: { row: CoverageRow; system: AiSystemView }
       <p className="mt-1 text-xs text-slate-700">
         Owed by {owed} · {NAG_ROLE_LABEL[row.nagRole]}
       </p>
+      {row.attention && <AttentionLine attention={row.attention} />}
       <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-700">
         {datesForPath(row.dates, path).map((d) => (
           <li key={`${d.date}-${d.path ?? ''}`}>

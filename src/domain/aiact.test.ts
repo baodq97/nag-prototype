@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { NOW, tenant } from '../seed/base';
 import {
   appliesTo,
+  attentionFor,
   coverageStatus,
   dateChip,
   datesForPath,
@@ -38,6 +39,25 @@ describe('coverageStatus', () => {
     ['outside', [], 0, 'outside'],
   ] as const)('%s with controls %j and %i tests is %s', (role, oks, tests, expected) => {
     expect(coverageStatus(role, [...oks], tests)).toBe(expected);
+  });
+});
+
+describe('attentionFor', () => {
+  const failing = new Set(['T2', 'T4']);
+  const isFailing = (id: string) => failing.has(id);
+
+  it('names the first failing control and its first failing test', () => {
+    const controls = [
+      { id: 'C1', testIds: ['T1'] },
+      { id: 'C2', testIds: ['T3', 'T4', 'T2'] },
+      { id: 'C3', testIds: ['T2'] },
+    ];
+    expect(attentionFor(controls, isFailing)).toEqual({ controlId: 'C2', testId: 'T4' });
+  });
+
+  it('is undefined while every linked control passes, or none is linked', () => {
+    expect(attentionFor([{ id: 'C1', testIds: ['T1', 'T3'] }], isFailing)).toBeUndefined();
+    expect(attentionFor([], isFailing)).toBeUndefined();
   });
 });
 

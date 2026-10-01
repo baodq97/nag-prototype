@@ -148,8 +148,16 @@ export interface ArticleCoverage extends ArticleRow {
 /** Derived, never seeded: see `coverageStatus`. */
 export type CoverageStatus = 'covered' | 'needs-attention' | 'shared' | 'outside';
 
+/** Why a row needs attention: a linked control that fails, and the failing test to open next. */
+export interface CoverageAttention {
+  controlId: string;
+  testId: string;
+}
+
 export interface CoverageRow extends ArticleCoverage {
   status: CoverageStatus;
+  /** Set exactly when the status is "needs attention". */
+  attention?: CoverageAttention;
 }
 
 /** A recorded answer to one classification step, with a one-line reason. */

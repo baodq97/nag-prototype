@@ -110,7 +110,7 @@ const TESTS: [string, string, string[], string][] = [
   [
     'Hash chain verifies end to end',
     'int-proxy',
-    ['aia-12', 'iso-a.6.2.8'],
+    ['aia-12', 'aia-21', 'iso-a.6.2.8'],
     'The L1 hash chain has no breaks over the last 24 hours.',
   ],
   [
@@ -128,7 +128,7 @@ const TESTS: [string, string, string[], string][] = [
   [
     'Evidence retention of at least 6 months',
     'int-cloud',
-    ['aia-12', 'aia-18', 'aia-19', 'aia-26-6'],
+    ['aia-12', 'aia-18', 'aia-19', 'aia-21', 'aia-26-6'],
     'Storage retention keeps evidence for at least 6 months.',
   ],
   [
@@ -194,13 +194,13 @@ const TESTS: [string, string, string[], string][] = [
   [
     'Classifier recall measured in the last 30 days',
     'int-cloud',
-    ['aia-15', 'iso-a.6.2.4'],
+    ['aia-15', 'aia-25', 'iso-a.6.2.4'],
     'Recall of the stub classifier has a measurement younger than 30 days.',
   ],
   [
     'Policy bundles declare class and budget',
     'int-proxy',
-    ['aia-15'],
+    ['aia-15', 'aia-26-1', 'aia-26-4'],
     'Every loaded bundle declares a class and a latency budget.',
   ],
   [
@@ -248,7 +248,7 @@ const TESTS: [string, string, string[], string][] = [
   [
     'Conformity assessment route selected',
     'int-ticket',
-    ['aia-43'],
+    ['aia-43', 'aia-43-4'],
     'Each high-risk system has a chosen assessment route.',
   ],
   [
@@ -284,7 +284,7 @@ const TESTS: [string, string, string[], string][] = [
   [
     'Content logging off by default',
     'int-proxy',
-    ['aia-10'],
+    ['aia-10', 'aia-26-4'],
     'Endpoints log metadata and keyed digests only unless opted in.',
   ],
   [
@@ -387,8 +387,14 @@ const CONTROLS: [string, string[], string[], string[], string[]][] = [
   ['Governance of training data', ['aia-10', 'iso-a.7.4'], t(7, 8), ['DOC-05'], []],
   ['Technical documentation maintained', ['aia-11', 'iso-7.5'], t(9, 10), ['DOC-01', 'DOC-12'], []],
   ['Automatic event logging', ['aia-12', 'aia-86', 'iso-a.6.2.8'], t(11, 24), ['DOC-06'], []],
-  ['Tamper-evident evidence chain', ['aia-12'], t(12, 13, 14), [], []],
-  ['Log retention', ['aia-12', 'aia-18', 'aia-19', 'aia-26-6'], t(15, 32), ['DOC-06'], ['POL-05']],
+  ['Tamper-evident evidence chain', ['aia-12', 'aia-21'], t(12, 13, 14), [], []],
+  [
+    'Log retention',
+    ['aia-12', 'aia-18', 'aia-19', 'aia-21', 'aia-26-6'],
+    t(15, 32),
+    ['DOC-06'],
+    ['POL-05'],
+  ],
   ['Information for deployers', ['aia-13', 'iso-a.8.2'], t(16), ['DOC-02'], []],
   ['Transparency to end users', ['aia-13'], t(17), [], ['POL-02']],
   [
@@ -403,23 +409,29 @@ const CONTROLS: [string, string[], string[], string[], string[]][] = [
   ['Agent depth limit', ['aia-15', 'iso-a.6.2.6'], t(23), [], []],
   ['MCP tool governance', ['aia-15', 'iso-a.10.3'], t(24, 25), [], ['POL-07']],
   ['Detection quality measured', ['aia-15', 'iso-a.6.2.4'], t(26, 29), [], []],
-  ['Policy bundle hygiene', ['aia-15'], t(27, 28), [], []],
+  ['Policy bundle hygiene', ['aia-15', 'aia-26-1', 'aia-26-4'], t(27, 28), [], []],
   ['Quality management system', ['aia-17', 'iso-5.2'], t(30), [], ['POL-08']],
   ['AI policy in place', ['iso-5.2', 'iso-a.2.2'], t(31), [], ['POL-01']],
   ['Documentation keeping', ['aia-18', 'iso-7.5'], t(32), ['DOC-06'], []],
   ['Deployer duties communicated', ['aia-26-2', 'aia-26-6'], t(33, 34), ['DOC-02'], []],
-  ['Conformity assessment', ['aia-43'], t(35), [], []],
+  ['Conformity assessment', ['aia-43', 'aia-43-4'], t(35), [], []],
   ['Declaration of conformity', ['aia-47'], t(36), [], []],
   ['Post-market monitoring', ['aia-72', 'iso-9.1'], t(37), ['DOC-07'], []],
   ['Serious incident reporting', ['aia-73', 'iso-10.2'], t(38), ['DOC-08'], ['POL-06']],
   ['Internal audit programme', ['iso-9.2'], t(39), ['DOC-10'], []],
   ['AI impact assessment', ['iso-6.1.4', 'iso-a.5.2'], t(40), ['DOC-09'], ['POL-04']],
-  ['Privacy by default for logs', ['aia-10'], t(41), [], ['POL-05']],
+  ['Privacy by default for logs', ['aia-10', 'aia-26-4'], t(41), [], ['POL-05']],
   ['Erasure by key destruction', ['aia-12'], t(42), [], ['POL-05']],
   ['Supplier management', ['iso-a.10.3'], t(43), ['DOC-11'], ['POL-07']],
   ['Corrective action', ['iso-10.2'], t(44, 38), [], []],
   ['Context of the organisation', ['iso-4.1'], t(31, 5), [], ['POL-01']],
-  ['Monitoring and measurement', ['iso-9.1', 'aia-72', 'aia-26-5'], t(26, 37), ['DOC-07'], []],
+  [
+    'Monitoring and measurement',
+    ['iso-9.1', 'aia-72', 'aia-26-5', 'aia-25'],
+    t(26, 37),
+    ['DOC-07'],
+    [],
+  ],
   ['Reviewer access control', ['aia-14', 'iso-a.3.2'], t(18, 22), [], ['POL-03']],
 ];
 

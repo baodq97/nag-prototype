@@ -107,15 +107,32 @@ describe('article map', () => {
     }
   });
 
-  it('makes NAG the control on exactly the nine continuous-evidence rows', () => {
+  it('gives every row a duty for the provider, the deployer or both', () => {
+    for (const r of articleMap) {
+      expect([r.provider.kind, r.deployer.kind], r.id).not.toEqual([
+        'not-applicable',
+        'not-applicable',
+      ]);
+    }
+  });
+
+  it('makes NAG the control on exactly the seventeen continuous-evidence rows', () => {
     expect(byRole('control')).toEqual(
       [
+        'aia-9',
         'aia-12',
         'aia-14',
+        'aia-15',
         'aia-19',
         'aia-20',
+        'aia-21',
+        'aia-25',
+        'aia-26-1',
+        'aia-26-2',
+        'aia-26-4',
         'aia-26-5',
         'aia-26-6',
+        'aia-43-4',
         'aia-72',
         'aia-73',
         'aia-86',
