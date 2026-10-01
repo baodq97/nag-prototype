@@ -1,10 +1,9 @@
 // Visits every route in the route table on the production build and checks the heading, the
 // absence of errors, the accessibility scan and the demo-data label.
 
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 import { routes } from '../src/routes';
-import { collectErrors } from './helpers';
+import { collectErrors, expectNoSeriousA11y } from './helpers';
 
 for (const route of routes) {
   test(`${route.sample} renders cleanly`, async ({ page }) => {
@@ -33,11 +32,7 @@ for (const route of routes) {
       expect(overflow, 'horizontal scroll at 1280 px').toBeLessThanOrEqual(0);
     }
 
-    const scan = await new AxeBuilder({ page }).analyze();
-    const serious = scan.violations
-      .filter((v) => v.impact === 'serious' || v.impact === 'critical')
-      .map((v) => `${v.id}: ${v.help} – ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`);
-    expect(serious).toEqual([]);
+    await expectNoSeriousA11y(page);
     expect(errors).toEqual([]);
   });
 }

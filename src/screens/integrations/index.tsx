@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import { integrations } from '../../data';
-import type { Integration } from '../../domain/types';
+import { INTEGRATION_KIND_LABEL } from '../../domain/integrations';
+import type { Integration, IntegrationKind } from '../../domain/types';
 import { type Column, DataTable, type Facet } from '../../ui/DataTable';
 import { fmtDateTime } from '../../ui/format';
 import { StubLabel } from '../../ui/Labels';
@@ -23,7 +24,7 @@ const columns: Column<Integration>[] = [
     key: 'kind',
     header: 'Type',
     sortValue: (i) => i.kind,
-    render: (i) => humanize(i.kind),
+    render: (i) => INTEGRATION_KIND_LABEL[i.kind],
   },
   {
     key: 'capabilities',
@@ -66,11 +67,16 @@ const columns: Column<Integration>[] = [
 
 const facets: Facet<Integration>[] = [
   { key: 'status', label: 'Status', value: (i) => i.status, format: humanize },
-  { key: 'kind', label: 'Type', value: (i) => i.kind, format: humanize },
+  {
+    key: 'kind',
+    label: 'Type',
+    value: (i) => i.kind,
+    format: (kind) => INTEGRATION_KIND_LABEL[kind as IntegrationKind],
+  },
 ];
 
 const searchText = (i: Integration) =>
-  `${i.name} ${i.kind} ${i.capabilities.join(' ')} ${i.status} ${i.errorMessage ?? ''}`;
+  `${i.name} ${INTEGRATION_KIND_LABEL[i.kind]} ${i.capabilities.join(' ')} ${i.status} ${i.errorMessage ?? ''}`;
 
 export default function Screen() {
   return (

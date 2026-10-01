@@ -115,17 +115,19 @@ export function SelectField({
   );
 }
 
-/** An on/off switch with a visible label. */
+/** An on/off switch with a label; `hideLabel` keeps it only as the accessible name. */
 export function Toggle({
   label,
   checked,
   onChange,
   disabled,
+  hideLabel,
 }: {
   label: string;
   checked: boolean;
   onChange: (next: boolean) => void;
   disabled?: boolean;
+  hideLabel?: boolean;
 }) {
   return (
     <button
@@ -144,7 +146,7 @@ export function Toggle({
           className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${checked ? 'left-4.5' : 'left-0.5'}`}
         />
       </span>
-      {label}
+      {hideLabel ? <span className="sr-only">{label}</span> : label}
     </button>
   );
 }

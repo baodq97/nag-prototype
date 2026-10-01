@@ -1,11 +1,10 @@
 // Flows added for demo readiness: what an erasure says about the gap in the evidence, the
 // trust claims that are under remediation, and the fallback choice on the runtime health screen.
 
-import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { ERASURE_SUBJECTS } from '../src/data';
 import { FALLBACK_EFFECT } from '../src/domain/health';
-import { collectErrors } from './helpers';
+import { collectErrors, expectNoSeriousA11y } from './helpers';
 
 const ALL_VERIFY = 'all 3 layers still verify';
 
@@ -155,9 +154,5 @@ test('the bypass confirmation passes the accessibility scan', async ({ page }) =
     .click();
   await expect(page.getByRole('dialog', { name: DIALOG })).toBeVisible();
 
-  const scan = await new AxeBuilder({ page }).analyze();
-  const serious = scan.violations
-    .filter((v) => v.impact === 'serious' || v.impact === 'critical')
-    .map((v) => `${v.id}: ${v.help} – ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`);
-  expect(serious).toEqual([]);
+  await expectNoSeriousA11y(page);
 });

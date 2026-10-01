@@ -103,19 +103,21 @@ export default function Screen() {
         }
       >
         {open && (
-          <dl className="grid grid-cols-2 gap-3">
-            <div>
-              <dt className="text-xs font-medium text-slate-600">Version</dt>
-              <dd className="text-sm text-slate-900">v{open.version}</dd>
-            </div>
-            <div>
-              <dt className="text-xs font-medium text-slate-600">Approvers</dt>
-              <dd className="text-sm text-slate-900">{approvers(open)}</dd>
-            </div>
-            <div className="col-span-2 text-xs text-slate-600">
+          <div className="flex flex-col gap-3">
+            <dl className="grid grid-cols-2 gap-3">
+              <div>
+                <dt className="text-xs font-medium text-slate-600">Version</dt>
+                <dd className="text-sm text-slate-900">v{open.version}</dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium text-slate-600">Approvers</dt>
+                <dd className="text-sm text-slate-900">{approvers(open)}</dd>
+              </div>
+            </dl>
+            <p className="text-xs text-slate-600">
               Covers {itemRefs(open.frameworkItemIds) || 'no framework items'}.
-            </div>
-          </dl>
+            </p>
+          </div>
         )}
       </ObjectDrawer>
     </Page>

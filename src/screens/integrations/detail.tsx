@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router';
 import { getIntegration, tests, unlocksFor } from '../../data';
+import { INTEGRATION_KIND_LABEL } from '../../domain/integrations';
 import type { Integration, ScopeEntry } from '../../domain/types';
 import { updateSession, useSession } from '../../session/store';
 import { Card } from '../../ui/Card';
@@ -45,6 +46,9 @@ function IntegrationDetail({ integration }: { integration: Integration }) {
       <Card>
         <div className="flex flex-wrap items-center gap-3">
           <StatusChip status={integration.status} />
+          <span className="text-sm text-slate-700">
+            Type: {INTEGRATION_KIND_LABEL[integration.kind]}
+          </span>
           <span className="text-sm text-slate-700">
             {integration.lastSyncAt
               ? `Last sync ${fmtDateTime(integration.lastSyncAt)}`

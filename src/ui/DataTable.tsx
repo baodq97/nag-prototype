@@ -1,15 +1,9 @@
 import { ArrowDown, ArrowUp, ArrowUpDown, Search } from 'lucide-react';
 import { type ReactNode, useId, useMemo, useState } from 'react';
 import { Button } from './Button';
+import { type Column, type Sort, sortRows } from './sort';
 
-export interface Column<T> {
-  key: string;
-  header: string;
-  render: (row: T) => ReactNode;
-  /** Present when the column can be sorted. */
-  sortValue?: (row: T) => string | number;
-  className?: string;
-}
+export type { Column, Sort };
 
 export interface Facet<T> {
   key: string;
@@ -31,13 +25,22 @@ interface Props<T> {
   searchText: (row: T) => string;
   onRowClick?: (row: T) => void;
   initialQuery?: string;
-  initialSort?: { key: string; dir: 'asc' | 'desc' };
+  initialSort?: Sort;
   toolbar?: ReactNode;
+  /** Opt-in paging: rows per page. Without it the table shows every row. */
+  pageSize?: number;
+  /** The current page (1-based) when paging; out-of-range values show page 1. */
+  page?: number;
+  /** Called with the new page; with 1 whenever the filter text, a facet or the sort changes. */
+  onPageChange?: (page: number) => void;
+  onSortChange?: (sort: Sort) => void;
+  /** Changing this value clears the filter text and the facets. */
+  resetKey?: string | number;
 }
 
 const asList = (v: string | string[]) => (Array.isArray(v) ? v : [v]);
 
-/** The console table: text filter, facet filters, column sorting and an empty state. */
+/** The console table: text filter, facet filters, column sorting, opt-in paging and an empty state. */
 export function DataTable<T>({
   label,
   rows,
@@ -49,11 +52,24 @@ export function DataTable<T>({
   initialQuery = '',
   initialSort,
   toolbar,
+  pageSize,
+  page = 1,
+  onPageChange,
+  onSortChange,
+  resetKey,
 }: Props<T>) {
   const [query, setQuery] = useState(initialQuery);
   const [chosen, setChosen] = useState<Record<string, string>>({});
   const [sort, setSort] = useState(initialSort);
+  const [seenResetKey, setSeenResetKey] = useState(resetKey);
   const base = useId();
+
+  // A new reset key clears the filters during render, so no effect and no extra page change.
+  if (resetKey !== seenResetKey) {
+    setSeenResetKey(resetKey);
+    setQuery('');
+    setChosen({});
+  }
 
   const options = useMemo(
     () =>
@@ -70,20 +86,20 @@ export function DataTable<T>({
         (!q || searchText(r).toLowerCase().includes(q)) &&
         facets.every((f) => !chosen[f.key] || asList(f.value(r)).includes(chosen[f.key]!)),
     );
-    const col = columns.find((c) => c.key === sort?.key);
-    if (!col?.sortValue || !sort) return filtered;
-    const dir = sort.dir === 'asc' ? 1 : -1;
-    return [...filtered].sort((a, b) => {
-      const x = col.sortValue!(a);
-      const y = col.sortValue!(b);
-      return (x < y ? -1 : x > y ? 1 : 0) * dir;
-    });
+    return sortRows(filtered, columns, sort);
   }, [rows, query, chosen, facets, columns, sort, searchText]);
 
+  const pages = pageSize ? Math.max(1, Math.ceil(visible.length / pageSize)) : 1;
+  const current = Number.isInteger(page) && page >= 1 && page <= pages ? page : 1;
+  const first = pageSize ? (current - 1) * pageSize : 0;
+  const shown = pageSize ? visible.slice(first, first + pageSize) : visible;
+
+  const toFirstPage = () => onPageChange?.(1);
   const filtering = query !== '' || Object.values(chosen).some(Boolean);
   const clear = () => {
     setQuery('');
     setChosen({});
+    toFirstPage();
   };
 
   return (
@@ -100,7 +116,10 @@ export function DataTable<T>({
             id={`${base}-q`}
             type="search"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              toFirstPage();
+            }}
             placeholder={`Filter ${label}…`}
             className="w-56 rounded-md border border-slate-300 py-1 pr-2 pl-7 text-sm placeholder:text-slate-500 focus:border-accent-600 focus:ring-1 focus:ring-accent-600 focus:outline-none"
           />
@@ -110,7 +129,11 @@ export function DataTable<T>({
             <span>{f.label}</span>
             <select
               value={chosen[f.key] ?? ''}
-              onChange={(e) => setChosen((c) => ({ ...c, [f.key]: e.target.value }))}
+              onChange={(e) => {
+                const value = e.target.value;
+                setChosen((c) => ({ ...c, [f.key]: value }));
+                toFirstPage();
+              }}
               className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm"
             >
               <option value="">All</option>
@@ -148,7 +171,12 @@ export function DataTable<T>({
                     {c.sortValue ? (
                       <button
                         type="button"
-                        onClick={() => setSort({ key: c.key, dir: dir === 'asc' ? 'desc' : 'asc' })}
+                        onClick={() => {
+                          const next: Sort = { key: c.key, dir: dir === 'asc' ? 'desc' : 'asc' };
+                          setSort(next);
+                          onSortChange?.(next);
+                          toFirstPage();
+                        }}
                         className="inline-flex items-center gap-1 hover:text-slate-900"
                       >
                         {c.header}
@@ -169,7 +197,7 @@ export function DataTable<T>({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {visible.map((r) => (
+            {shown.map((r) => (
               <tr
                 key={rowKey(r)}
                 onClick={onRowClick ? () => onRowClick(r) : undefined}
@@ -196,6 +224,37 @@ export function DataTable<T>({
           </div>
         )}
       </div>
+      {pageSize && visible.length > 0 && (
+        <nav
+          aria-label={`Pages of ${label}`}
+          className="flex items-center gap-3 border-t border-slate-200 px-3 py-2 text-sm text-slate-700"
+        >
+          <span>
+            Page {current} of {pages}
+          </span>
+          <span className="text-xs text-slate-600">
+            {first + 1}–{first + shown.length} of {visible.length}
+          </span>
+          <span className="ml-auto flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={current <= 1}
+              onClick={() => onPageChange?.(current - 1)}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={current >= pages}
+              onClick={() => onPageChange?.(current + 1)}
+            >
+              Next
+            </Button>
+          </span>
+        </nav>
+      )}
     </div>
   );
 }

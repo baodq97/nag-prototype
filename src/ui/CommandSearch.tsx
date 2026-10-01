@@ -57,11 +57,11 @@ export function CommandSearch() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-80 items-center gap-2 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-600 hover:border-slate-400"
+        className="flex w-80 min-w-fit shrink items-center gap-2 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-sm whitespace-nowrap text-slate-600 hover:border-slate-400"
       >
-        <Search size={14} aria-hidden />
-        <span>Search tests, controls, documents…</span>
-        <kbd className="ml-auto rounded border border-slate-300 px-1 text-xs text-slate-600">
+        <Search size={14} aria-hidden className="shrink-0" />
+        <span className="whitespace-nowrap">Search tests, controls, documents…</span>
+        <kbd className="ml-auto shrink-0 rounded px-1 text-xs whitespace-nowrap text-slate-600 ring-1 ring-slate-300 ring-inset">
           Ctrl K
         </kbd>
       </button>
