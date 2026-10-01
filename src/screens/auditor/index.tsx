@@ -7,7 +7,7 @@ import { Logo } from '../../ui/Logo';
 import { StatusChip } from '../../ui/StatusChip';
 import { fmtDate } from '../../ui/format';
 import { humanize } from '../../ui/status';
-import { STATE_ORDER, countStates } from './states';
+import { STATE_ORDER, countStates, staleRecords } from './states';
 
 // A separate, read-only layout for an external auditor: no inputs and no buttons that change
 // data. Deliberately not built on DataTable, which has a text filter.
@@ -56,6 +56,7 @@ export default function Screen() {
   }
 
   const counts = countStates(audit);
+  const stale = staleRecords(audit.framework);
 
   return (
     <Frame title={audit.name}>
@@ -134,6 +135,30 @@ export default function Screen() {
             </tbody>
           </table>
         </div>
+      </Card>
+
+      <Card title={`Documents and policies past their date (${stale.length})`} className="mt-5">
+        {stale.length === 0 ? (
+          <p className="text-sm text-slate-700">
+            No approved document or policy for {FRAMEWORK_NAMES[audit.framework]} is past its date.
+          </p>
+        ) : (
+          <ul
+            className="divide-y divide-slate-100"
+            aria-label="Documents and policies past their date"
+          >
+            {stale.map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm">
+                <span className="font-mono text-xs text-slate-600">{r.id}</span>
+                <span className="font-medium">{r.name}</span>
+                <StatusChip status={r.state} />
+                <span className="text-xs text-slate-600">
+                  {r.dateLabel} {fmtDate(r.date)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </Card>
     </Frame>
   );

@@ -1,5 +1,12 @@
 import { Link } from 'react-router';
-import { FRAMEWORK_NAMES, detectionQuality, personName, postureSummary, tests } from '../../data';
+import {
+  FRAMEWORK_NAMES,
+  detectionQuality,
+  personName,
+  postureSummary,
+  reviewCounts,
+  tests,
+} from '../../data';
 import { Card, Stat } from '../../ui/Card';
 import { fmtDate } from '../../ui/format';
 import { StubLabel } from '../../ui/Labels';
@@ -8,6 +15,7 @@ import { StatusChip } from '../../ui/StatusChip';
 import { TrendChart } from './TrendChart';
 
 const summary = postureSummary();
+const review = reviewCounts();
 const failing = tests
   .filter((t) => t.status === 'failing')
   .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
@@ -98,6 +106,43 @@ export default function Screen() {
           </Card>
         </div>
       </div>
+
+      <Card
+        title="Documents and policies"
+        actions={
+          <span className="flex gap-3 text-sm font-medium">
+            <Link to="/documents" className="text-accent-700 hover:underline">
+              Documents
+            </Link>
+            <Link to="/policies" className="text-accent-700 hover:underline">
+              Policies
+            </Link>
+          </span>
+        }
+      >
+        {review.documentsOverdue === 0 && review.policiesExpired === 0 ? (
+          <p className="text-sm text-slate-900">
+            Every approved document and policy is within its review or renewal date.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2 text-sm text-slate-900">
+            {review.documentsOverdue > 0 && (
+              <li className="flex items-center gap-2">
+                <StatusChip status="review-overdue" />
+                {review.documentsOverdue} {review.documentsOverdue === 1 ? 'document' : 'documents'}{' '}
+                past the next review date
+              </li>
+            )}
+            {review.policiesExpired > 0 && (
+              <li className="flex items-center gap-2">
+                <StatusChip status="renewal-expired" />
+                {review.policiesExpired} {review.policiesExpired === 1 ? 'policy' : 'policies'} past
+                the renewal date
+              </li>
+            )}
+          </ul>
+        )}
+      </Card>
 
       <Card
         title={`Failing tests that need attention (${failing.length})`}

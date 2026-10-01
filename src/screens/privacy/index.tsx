@@ -1,6 +1,7 @@
 import { Check, Circle } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
-import { evidence, privacyEndpoints } from '../../data';
+import { ERASURE_SUBJECTS, erasureFor, evidence, privacyEndpoints } from '../../data';
+import { erasureSummary, rangeText } from '../../domain/erasure';
 import { type ErasureRun, sessionNow, updateSession, useSession } from '../../session/store';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
@@ -13,9 +14,6 @@ import { StatusChip } from '../../ui/StatusChip';
 const countFor = (subjectId: string) => evidence.filter((r) => r.subjectId === subjectId).length;
 
 const STAGES: ErasureRun['stage'][] = ['confirm', 'key-destroyed', 'countable', 'attested'];
-
-const recordsText = (n: number) =>
-  `${n} ${n === 1 ? 'record remains' : 'records remain'} countable, all 3 layers still verify`;
 
 function ContentLogging() {
   const logging = useSession((s) => s.contentLogging);
@@ -95,7 +93,7 @@ function ErasureFlow() {
   const start = () => {
     const id = subject.trim();
     if (!id) {
-      setError('Enter a subject ID, for example subj-0007.');
+      setError(`Enter a subject ID, for example ${ERASURE_SUBJECTS.withGap}.`);
       return;
     }
     if (countFor(id) === 0) {
@@ -110,14 +108,17 @@ function ErasureFlow() {
     setSubject('');
   };
 
-  const n = run ? countFor(run.subjectId) : 0;
+  const layers = run ? erasureFor(run.subjectId) : undefined;
 
   return (
     <Card title="Erasure flow">
       <p className="mb-3 text-sm text-slate-700">
         Content is made unreadable by destroying the key that protects it. The evidence records stay
         in place, so the chain can still be counted and checked. This is a technical step in a demo,
-        not a legal determination that data has been erased.
+        not a legal determination that data has been erased. To try it, use{' '}
+        <span className="font-mono">{ERASURE_SUBJECTS.withGap}</span> (a record range with a known
+        integrity failure) or <span className="font-mono">{ERASURE_SUBJECTS.clean}</span> (ranges
+        that all verify).
       </p>
       {!run && (
         <div className="flex flex-wrap items-start gap-2">
@@ -174,10 +175,27 @@ function ErasureFlow() {
               )}
             </Step>
             <Step done={reached >= 2} title="3. Records stay countable">
-              {reached >= 2 && (
-                <span data-testid="countable">
-                  {recordsText(n)}. Results are seeded for this demo.
-                </span>
+              {reached >= 2 && layers && (
+                <div
+                  data-testid="countable"
+                  data-verify={layers.allVerify ? 'ok' : 'failing'}
+                  className={`rounded-md border px-3 py-2 ${layers.allVerify ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-red-200 bg-red-50 text-red-900'}`}
+                >
+                  <p>
+                    <StatusChip variant={layers.allVerify ? 'success' : 'danger'}>
+                      {layers.allVerify ? 'All layers verify' : 'Verification fails'}
+                    </StatusChip>{' '}
+                    {erasureSummary(layers)}. Results are seeded for this demo.
+                  </p>
+                  <ul
+                    aria-label="Evidence layers per range"
+                    className="mt-2 list-disc space-y-1 pl-5 text-xs"
+                  >
+                    {layers.ranges.map((range) => (
+                      <li key={`${range.fromSeq}-${range.toSeq}`}>{rangeText(range)}</li>
+                    ))}
+                  </ul>
+                </div>
               )}
               {reached === 2 && (
                 <div className="mt-2">
@@ -204,21 +222,24 @@ function Attestations() {
         <p className="text-sm text-slate-600">No erasure has been attested in this session.</p>
       ) : (
         <ul className="divide-y divide-slate-100" aria-label="Erasure attestations">
-          {attested.map((e, i) => (
-            <li
-              key={`${e.subjectId}-${i}`}
-              className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm"
-            >
-              <StatusChip variant="success">Attested</StatusChip>
-              <span className="font-mono">{e.subjectId}</span>
-              <span className="text-slate-700">
-                Key destroyed (stub); {recordsText(countFor(e.subjectId))}.
-              </span>
-              <time dateTime={e.at} className="text-xs text-slate-600">
-                {fmtDateTime(e.at)}
-              </time>
-            </li>
-          ))}
+          {attested.map((e, i) => {
+            const layers = erasureFor(e.subjectId);
+            return (
+              <li
+                key={`${e.subjectId}-${i}`}
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2 text-sm"
+              >
+                <StatusChip variant="success">Attested</StatusChip>
+                <span className="font-mono">{e.subjectId}</span>
+                <span className={layers.allVerify ? 'text-slate-700' : 'text-red-800'}>
+                  Key destroyed (stub); {erasureSummary(layers)}.
+                </span>
+                <time dateTime={e.at} className="text-xs text-slate-600">
+                  {fmtDateTime(e.at)}
+                </time>
+              </li>
+            );
+          })}
         </ul>
       )}
       <p className="mt-3 text-xs text-slate-600">
