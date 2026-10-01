@@ -4,7 +4,7 @@ import {
   NOW,
   frameworkItems,
   tenant,
-  trustCategories,
+  trustEntries,
   trustUpdatedAt,
 } from '../../data';
 import { updatedAgo } from '../../domain/time';
@@ -106,10 +106,10 @@ export default function Screen() {
           <h2 id="trust-controls" className="text-lg font-semibold">
             Controls by category
           </h2>
-          {trustCategories.map((cat) => (
+          {trustEntries().map((cat) => (
             <Card key={cat.id} title={cat.name}>
               <ul className="flex flex-col gap-2">
-                {cat.controls.map((c) => (
+                {cat.entries.map((c) => (
                   <li
                     key={c.name}
                     className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1 text-sm"

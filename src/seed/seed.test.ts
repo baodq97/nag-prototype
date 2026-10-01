@@ -5,7 +5,17 @@ import { depths, isDepthAllowed } from '../domain/lineage';
 import { frameworkItems, integrations } from './base';
 import { controls, coverage, documents, policies, tests } from './catalogue';
 import { audits, packageSections, qmsTemplates, risks } from './governance';
-import { MISSING_SEQ, evidence, lineage, policyBundles, quarantine, traces } from './runtime';
+import {
+  ERASURE_SUBJECTS,
+  MISSING_SEQ,
+  circuitBreaker,
+  evidence,
+  lineage,
+  pipelineStages,
+  policyBundles,
+  quarantine,
+  traces,
+} from './runtime';
 
 const itemIds = new Set(frameworkItems.map((i) => i.id));
 
@@ -74,6 +84,32 @@ describe('runtime', () => {
     const seqs = new Set(evidence.map((r) => r.seq));
     expect(seqs.has(MISSING_SEQ)).toBe(false);
     expect(seqs.has(MISSING_SEQ - 1) && seqs.has(MISSING_SEQ + 1)).toBe(true);
+  });
+
+  it('is deterministic and keeps the gap at seq 137', () => {
+    expect(MISSING_SEQ).toBe(137);
+    expect(evidence.map((r) => r.subjectId).slice(0, 3)).toEqual([
+      'subj-0038',
+      'subj-0012',
+      'subj-0014',
+    ]);
+  });
+
+  it('has one erasure subject next to the gap and one whose ranges all verify', () => {
+    const seqs = (s: string) => evidence.filter((r) => r.subjectId === s).map((r) => r.seq);
+    expect(seqs(ERASURE_SUBJECTS.withGap).some((s) => s >= 101 && s <= 150)).toBe(true);
+    const clean = seqs(ERASURE_SUBJECTS.clean);
+    expect(clean.length).toBeGreaterThan(0);
+    expect(clean.some((s) => s >= 101 && s <= 150)).toBe(false);
+  });
+
+  it('has a budget, seeded percentiles and breach counters for every pipeline stage', () => {
+    expect(pipelineStages.length).toBeGreaterThanOrEqual(4);
+    for (const s of pipelineStages) {
+      expect(s.p50Ms <= s.p95Ms && s.p95Ms <= s.p99Ms, s.id).toBe(true);
+      expect(s.breaches24h <= s.breaches7d, s.id).toBe(true);
+    }
+    expect(['closed', 'open', 'half-open']).toContain(circuitBreaker.state);
   });
 
   it('has at least 12 quarantined items', () => {

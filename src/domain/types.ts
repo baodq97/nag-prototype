@@ -335,11 +335,55 @@ export interface Audit {
   requests: AuditRequest[];
 }
 
+/** Where an approved document or policy stands against its review or renewal date. */
+export type ReviewState = 'current' | 'review-overdue' | 'renewal-expired';
+
+/** A console object a public trust claim rests on. */
+export type TrustRef =
+  { kind: 'control' | 'policy' | 'document'; id: string } | { kind: 'verification' };
+
+export type TrustStatus = 'in-place' | 'under-remediation' | 'in-progress';
+
+/** One public claim. Its status is derived from `refs`, never set by hand. */
+export interface TrustEntry {
+  name: string;
+  refs: TrustRef[];
+  /** Not built yet: shows "In progress" whatever its references say. */
+  planned?: boolean;
+}
+
 export interface TrustCategory {
   id: string;
   name: string;
-  controls: { name: string; status: 'in-place' | 'in-progress' }[];
+  entries: TrustEntry[];
 }
+
+/** One stage of the request pipeline with its configured budget and seeded latency. */
+export interface PipelineStage {
+  id: string;
+  name: string;
+  budgetMs: number;
+  /** Seeded, not measured. */
+  p50Ms: number;
+  p95Ms: number;
+  p99Ms: number;
+  breaches24h: number;
+  breaches7d: number;
+}
+
+export type BreakerState = 'closed' | 'open' | 'half-open';
+
+/** The circuit breaker on the customer side of the sidecar (stub). */
+export interface CircuitBreaker {
+  state: BreakerState;
+  /** Failed or timed-out calls inside the window that open the breaker. */
+  tripFailures: number;
+  windowSeconds: number;
+  lastTransition: { at: string; from: BreakerState; to: BreakerState };
+}
+
+/** What the tenant's application does when NAG cannot be reached. */
+export type FallbackMode = 'bypass' | 'hard-stop';
 
 /** One searchable console object, for the command search. */
 export interface SearchEntry {

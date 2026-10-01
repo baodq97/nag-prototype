@@ -1,10 +1,13 @@
 // Seeded runtime behaviour. No runtime is connected; every value below is demo data.
 
 import type {
+  CircuitBreaker,
   EvidenceRecord,
+  FallbackMode,
   LatencyProfile,
   LineageNode,
   LineageTrace,
+  PipelineStage,
   PolicyBundle,
   PrivacyEndpoint,
   QuarantineItem,
@@ -75,6 +78,42 @@ function buildEvidence(): EvidenceRecord[] {
 }
 
 export const evidence: EvidenceRecord[] = buildEvidence();
+
+/** Subjects the erasure demo uses: one with records next to the gap, one whose ranges all verify. */
+export const ERASURE_SUBJECTS = { withGap: 'subj-0007', clean: 'subj-0011' };
+
+// [id, name, budget, p50, p95, p99, breaches in 24 h, breaches in 7 days]. Seeded, not measured.
+const STAGES: [string, string, number, number, number, number, number, number][] = [
+  ['ingress', 'Ingress and tenant lookup', 5, 1, 3, 4, 0, 0],
+  ['class-a', 'Class A checks (blocking)', 30, 9, 21, 27, 0, 2],
+  ['class-b', 'Class B checks', 45, 14, 38, 52, 3, 17],
+  ['class-c', 'Class C checks', 120, 41, 96, 138, 6, 29],
+  ['evidence', 'Evidence write', 10, 2, 6, 9, 0, 1],
+];
+
+export const pipelineStages: PipelineStage[] = STAGES.map(
+  ([id, name, budgetMs, p50Ms, p95Ms, p99Ms, breaches24h, breaches7d]) => ({
+    id,
+    name,
+    budgetMs,
+    p50Ms,
+    p95Ms,
+    p99Ms,
+    breaches24h,
+    breaches7d,
+  }),
+);
+
+/** The customer-side circuit breaker (stub): closed again after a short trip this morning. */
+export const circuitBreaker: CircuitBreaker = {
+  state: 'closed',
+  tripFailures: 5,
+  windowSeconds: 30,
+  lastTransition: { at: '2026-09-30T06:42:00.000Z', from: 'half-open', to: 'closed' },
+};
+
+/** The tenant's configured behaviour when NAG cannot be reached. */
+export const defaultFallbackMode: FallbackMode = 'hard-stop';
 
 // Received times spread across business hours, a weekend and older items, relative to NOW
 // (Wednesday 30 September 2026, 10:00 Berlin).

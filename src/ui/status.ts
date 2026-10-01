@@ -51,6 +51,18 @@ const VARIANT_OF: Record<string, ChipVariant> = {
   abandoned: 'neutral',
   runtime: 'info',
   template: 'neutral',
+  current: 'success',
+  'review-overdue': 'danger',
+  'renewal-expired': 'danger',
+  'under-remediation': 'danger',
+  'half-open': 'warning',
+  'hard-stop': 'info',
+  bypass: 'warning',
+};
+
+/** Statuses whose label is not their humanized key. */
+const LABEL_OF: Record<string, string> = {
+  'renewal-expired': 'Expired',
 };
 
 export function variantOf(status: string): ChipVariant {
@@ -59,6 +71,8 @@ export function variantOf(status: string): ChipVariant {
 
 /** "needs-remediation" → "Needs remediation". */
 export function humanize(status: string): string {
+  const label = LABEL_OF[status];
+  if (label) return label;
   const text = status.replace(/-/g, ' ');
   return text.charAt(0).toUpperCase() + text.slice(1);
 }

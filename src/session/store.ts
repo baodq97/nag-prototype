@@ -3,8 +3,8 @@
 
 import { useSyncExternalStore } from 'react';
 import type { RoleApproval } from '../domain/approval';
-import type { ApprovalStep, Task } from '../domain/types';
-import { NOW, qmsTemplates, seedTasks } from '../data';
+import type { ApprovalStep, FallbackMode, Task } from '../domain/types';
+import { NOW, defaultFallbackMode, qmsTemplates, seedTasks } from '../data';
 
 export interface TimelineEntry {
   at: string;
@@ -39,6 +39,8 @@ export interface SessionState {
   erasures: ErasureRun[];
   contentLogging: Record<string, boolean>;
   scope: Record<string, boolean>;
+  /** Bypass or hard stop when NAG is unreachable; changed for this session only. */
+  fallbackMode: FallbackMode;
 }
 
 function initialState(): SessionState {
@@ -50,6 +52,7 @@ function initialState(): SessionState {
     erasures: [],
     contentLogging: {},
     scope: {},
+    fallbackMode: defaultFallbackMode,
   };
 }
 
