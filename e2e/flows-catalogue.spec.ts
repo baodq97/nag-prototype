@@ -20,6 +20,13 @@ test('filter tests, open a failing test, remediate and see the task', async ({ p
   await expect(
     page.getByRole('heading', { level: 1, name: failing.name, exact: true }),
   ).toBeVisible();
+  // Per framework: the linked controls' state, not the test's own status again.
+  await expect(
+    page
+      .getByRole('list', { name: 'Status by framework' })
+      .getByText(/\d+\/\d+ linked controls passing|No linked control for this framework/)
+      .first(),
+  ).toBeVisible();
 
   await page.getByRole('button', { name: 'Remediate' }).click();
   const drawer = page.getByRole('dialog');

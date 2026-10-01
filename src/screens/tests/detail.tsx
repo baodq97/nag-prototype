@@ -11,7 +11,7 @@ import { Page } from '../../ui/Page';
 import { StatusChip } from '../../ui/StatusChip';
 import { Tabs } from '../../ui/Tabs';
 import { TaskList } from '../../ui/ObjectDrawer';
-import { testFrameworkRefs } from './helpers';
+import { testFrameworkStatus } from './helpers';
 
 function Meta({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -67,7 +67,7 @@ function TestDetail({ test }: { test: ComplianceTest }) {
   const [remediating, setRemediating] = useState(false);
   const integration = getIntegration(test.integrationId);
   const linked = controlsForTest(test.id);
-  const refs = testFrameworkRefs(test);
+  const byFramework = testFrameworkStatus(test);
 
   return (
     <Page
@@ -123,14 +123,23 @@ function TestDetail({ test }: { test: ComplianceTest }) {
           )}
         </Card>
         <Card title="Status by framework">
-          <ul className="flex flex-col gap-2">
-            {refs.map((r) => (
+          <ul className="flex flex-col gap-2" aria-label="Status by framework">
+            {byFramework.map((r) => (
               <li key={r.framework} className="flex items-center justify-between gap-2 text-sm">
                 <span>
                   <span className="font-medium text-slate-900">{r.framework}</span>
                   <span className="block text-xs text-slate-600">{r.refs}</span>
+                  <span className="block text-xs text-slate-600">
+                    {r.total === 0
+                      ? 'No linked control for this framework'
+                      : `${r.passing}/${r.total} linked controls passing`}
+                  </span>
                 </span>
-                <StatusChip status={test.status} />
+                {r.total === 0 ? (
+                  <StatusChip variant="neutral">No control</StatusChip>
+                ) : (
+                  <StatusChip status={r.passing === r.total ? 'passing' : 'failing'} />
+                )}
               </li>
             ))}
           </ul>
