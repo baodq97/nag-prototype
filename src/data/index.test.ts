@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  aiSystems,
+  articleRows,
   controls,
-  coverage,
+  getArticleRow,
   getControl,
   getDocument,
   getPolicy,
   getRisk,
+  getSystem,
   getTest,
   itemRefs,
   searchIndex,
@@ -16,6 +19,7 @@ const getters: Record<string, (id: string) => unknown> = {
   '/documents': getDocument,
   '/policies': getPolicy,
   '/risks': getRisk,
+  '/ai-systems': getSystem,
 };
 
 /** Whether the page an href opens shows the thing it points at. */
@@ -23,7 +27,7 @@ function resolves(href: string): boolean {
   const url = new URL(href, 'http://nag.local');
   if (url.pathname.startsWith('/tests/')) return !!getTest(url.pathname.slice('/tests/'.length));
   if (url.pathname === '/coverage') {
-    return coverage.some((c) => `#${c.frameworkItemId}` === url.hash);
+    return !!getArticleRow(url.hash.slice(1));
   }
   const open = url.searchParams.get('open');
   if (open) return !!getters[url.pathname]?.(open);
@@ -40,8 +44,19 @@ describe('search index', () => {
     expect(broken).toEqual([]);
   });
 
-  it('opens articles without a coverage row in the filtered controls table', () => {
-    expect(searchIndex.find((e) => e.id === 'aia-9')?.href).toBe('/controls?q=Art.%209');
+  it('opens framework items without an article row in the filtered controls table', () => {
+    expect(searchIndex.find((e) => e.id === 'iso-9.1')?.href).toBe('/controls?q=9.1');
     expect(searchIndex.find((e) => e.id === 'aia-14')?.href).toBe('/coverage#aia-14');
+  });
+
+  it('indexes all 57 article rows and the 3 AI systems', () => {
+    const ids = (kind: string) => searchIndex.filter((e) => e.kind === kind).map((e) => e.id);
+    expect(articleRows()).toHaveLength(57);
+    for (const r of articleRows()) expect(ids('article'), r.id).toContain(r.id);
+    expect(ids('system')).toEqual(aiSystems().map((s) => s.id));
+    expect(searchIndex.find((e) => e.id === 'aia-26-5')?.href).toBe('/coverage#aia-26-5');
+    expect(searchIndex.find((e) => e.id === 'sys-router')?.href).toBe(
+      '/ai-systems?open=sys-router',
+    );
   });
 });

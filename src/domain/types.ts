@@ -90,18 +90,156 @@ export interface Control {
   comments: Comment[];
 }
 
-export type CoverageStatus = 'covered' | 'partial' | 'customer';
+/** Group of the EU AI Act article map; P holds the prohibited practices. */
+export type ArticleGroup = 'P' | 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'T';
 
-export interface ArticleCoverage {
-  frameworkItemId: string;
-  article: string;
-  title: string;
-  nagCovers: string;
-  customerMust: string;
-  status: CoverageStatus;
-  testIds: string[];
-  controlIds: string[];
+/** Who an article row binds: the provider or the deployer of an AI system. */
+export type OperatorRole = 'provider' | 'deployer';
+
+/** What one operator owes on a row. */
+export type Duty =
+  { kind: 'must' } | { kind: 'only-if'; condition: string } | { kind: 'not-applicable' };
+
+/** NAG's part in a row: it is the control, it supports a person's step, or it is out of scope. */
+export type NagRole = 'control' | 'supports' | 'outside';
+
+/** The Act's risk tier of an AI system, 1 (prohibited) to 4 (minimal). */
+export type RiskTier = 'prohibited' | 'high' | 'transparency' | 'minimal';
+
+/** The route by which a system is high-risk: an Annex I product or an Annex III area. */
+export type AnnexPath = 'annex-i' | 'annex-iii';
+
+export interface ApplicationDate {
+  /** YYYY-MM-DD. */
+  date: string;
+  /** Set when the date holds only for systems on one high-risk route. */
+  path?: AnnexPath;
+  note?: string;
 }
+
+/** One row of the EU AI Act article map as seeded: no links and no status. */
+export interface ArticleRow {
+  /** Also the id of its framework item, e.g. "aia-14" or "aia-26-5". */
+  id: string;
+  /** Reference as shown, e.g. "Art. 26(5)". */
+  article: string;
+  group: ArticleGroup;
+  /** Short title in our own words. */
+  title: string;
+  provider: Duty;
+  deployer: Duty;
+  nagRole: NagRole;
+  nagDoes: string;
+  customerKeeps: string;
+  /** Why NAG does not cover the row; only on outside-scope rows. */
+  outsideReason?: string;
+  /** One plain line shown with the row: why it owes no duty, or how a sector meets it. */
+  note?: string;
+  riskTiers: RiskTier[];
+  dates: ApplicationDate[];
+  /** Runtime feature shown as row content that is a stub in this prototype. */
+  stub?: string;
+}
+
+/** A row joined with the controls and tests mapped to it. */
+export interface ArticleCoverage extends ArticleRow {
+  controlIds: string[];
+  testIds: string[];
+}
+
+/** Derived, never seeded: see `coverageStatus`. */
+export type CoverageStatus = 'covered' | 'needs-attention' | 'shared' | 'outside';
+
+/** Why a row needs attention: a linked control that fails, and the failing test to open next. */
+export interface CoverageAttention {
+  controlId: string;
+  testId: string;
+}
+
+export interface CoverageRow extends ArticleCoverage {
+  status: CoverageStatus;
+  /** Set exactly when the status is "needs attention". */
+  attention?: CoverageAttention;
+}
+
+/** A recorded answer to one classification step, with a one-line reason. */
+export interface StepAnswer {
+  answer: boolean;
+  reason: string;
+}
+
+/** Recorded answers to the six ordered classification steps; the sixth needs none. */
+export interface ClassificationAnswers {
+  inScope: StepAnswer;
+  prohibited: StepAnswer;
+  annexI: StepAnswer;
+  annexIII: {
+    /** The Annex III area, or null when the system is in none. */
+    area: string | null;
+    profilesPeople: boolean;
+    exemptionHolds: boolean;
+    reason: string;
+  };
+  transparency: StepAnswer;
+}
+
+/** Recorded answers that decide the tenant's role for a system. */
+export interface RoleAnswers {
+  builtBy: 'tenant' | 'third-party';
+  marketedUnder: 'tenant' | 'third-party';
+  substantiallyModified: boolean;
+  repurposed: boolean;
+  /** Whether Art. 25 turns the tenant, as deployer, into a provider. */
+  art25MakesProvider: boolean;
+  usedUnderOwnAuthority: boolean;
+  reason: string;
+}
+
+export interface ReasoningLine {
+  step: string;
+  answer: string;
+  reason: string;
+}
+
+/** The result of replaying a system's answers. */
+export interface Classification {
+  /** Null when the system is outside the Act. */
+  riskTier: RiskTier | null;
+  path?: AnnexPath;
+  transparency: boolean;
+  roles: OperatorRole[];
+  reasoning: ReasoningLine[];
+}
+
+/** Seeded runtime signal on a system (demo data). */
+export interface SystemSignal {
+  kind: 'drift' | 'modification';
+  text: string;
+  observedAt: string;
+  /** Summary of the quarantined item the signal rests on. */
+  quarantineSummary?: string;
+}
+
+/** An AI system in the tenant's inventory. It stores answers, never a risk tier. */
+export interface AiSystem {
+  id: string;
+  name: string;
+  description: string;
+  /** Id of an existing gateway endpoint; absent for systems registered by hand. */
+  endpointId?: string;
+  discovery: 'gateway' | 'manual';
+  answers: ClassificationAnswers;
+  roleAnswers: RoleAnswers;
+  signals: SystemSignal[];
+}
+
+export interface AiSystemView extends AiSystem {
+  endpoint?: string;
+  classification: Classification;
+}
+
+/** Serious incident kinds, each with its own reporting clock. */
+export type IncidentKind = 'serious' | 'death' | 'widespread-or-critical';
 
 export type IntegrationKind =
   | 'reverse-proxy'
@@ -387,7 +525,7 @@ export type FallbackMode = 'bypass' | 'hard-stop';
 
 /** One searchable console object, for the command search. */
 export interface SearchEntry {
-  kind: 'test' | 'control' | 'document' | 'policy' | 'risk' | 'article';
+  kind: 'test' | 'control' | 'document' | 'policy' | 'risk' | 'article' | 'system';
   id: string;
   label: string;
   href: string;
