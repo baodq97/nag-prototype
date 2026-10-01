@@ -123,6 +123,7 @@ describe('trust claims', () => {
       'AI policy approved by leadership',
       'MCP server allow-list',
       'Independent timestamp anchoring',
+      'Emergency stop with dual approval to resume',
     ]) {
       expect(entry(name).status, name).not.toBe('in-place');
       expect(entry(name).status, name).toBe('under-remediation');

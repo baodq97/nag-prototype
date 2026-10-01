@@ -37,36 +37,46 @@ export interface DerivedCategory {
   entries: DerivedEntry[];
 }
 
-/** What is wrong with one reference, or null when it holds. */
-function refProblem(ref: TrustRef, ctx: ClaimContext): string | null {
+/**
+ * What is wrong with one reference; empty when it holds. A control holds only when its tests
+ * pass and the documents and policies it links hold too, so a claim cannot read "In place"
+ * while the console shows one of them past its date.
+ */
+function refProblems(ref: TrustRef, ctx: ClaimContext): string[] {
   switch (ref.kind) {
     case 'verification': {
       const failing = ctx.ranges.filter((r) => !r.ok);
       return failing.length === 0
-        ? null
-        : `Evidence verification fails in ${failing.map((r) => `seq ${r.fromSeq}–${r.toSeq}`).join(', ')}`;
+        ? []
+        : [
+            `Evidence verification fails in ${failing.map((r) => `seq ${r.fromSeq}–${r.toSeq}`).join(', ')}`,
+          ];
     }
     case 'control': {
       const control = ctx.controls.get(ref.id);
-      if (!control) return `${ref.id} is not in the console`;
+      if (!control) return [`${ref.id} is not in the console`];
       const s = controlTestStatus(control, ctx.tests);
-      return s.ok ? null : `${ref.id}: ${s.total - s.passing} of ${s.total} tests failing`;
+      return [
+        ...(s.ok ? [] : [`${ref.id}: ${s.total - s.passing} of ${s.total} tests failing`]),
+        ...control.documentIds.flatMap((id) => refProblems({ kind: 'document', id }, ctx)),
+        ...control.policyIds.flatMap((id) => refProblems({ kind: 'policy', id }, ctx)),
+      ];
     }
     case 'document': {
       const doc = ctx.documents.get(ref.id);
-      if (!doc) return `${ref.id} is not in the console`;
-      if (doc.status !== 'approved') return `${ref.id} is not approved`;
+      if (!doc) return [`${ref.id} is not in the console`];
+      if (doc.status !== 'approved') return [`${ref.id} is not approved`];
       return documentReviewState(doc, ctx.now, ctx.timeZone) === 'current'
-        ? null
-        : `${ref.id}: review overdue since ${doc.nextReview}`;
+        ? []
+        : [`${ref.id}: review overdue since ${doc.nextReview}`];
     }
     case 'policy': {
       const policy = ctx.policies.get(ref.id);
-      if (!policy) return `${ref.id} is not in the console`;
-      if (policy.status !== 'approved') return `${ref.id} is not approved`;
+      if (!policy) return [`${ref.id} is not in the console`];
+      if (policy.status !== 'approved') return [`${ref.id} is not approved`];
       return policyRenewalState(policy, ctx.now, ctx.timeZone) === 'current'
-        ? null
-        : `${ref.id}: renewal date ${policy.renewalDate} has passed`;
+        ? []
+        : [`${ref.id}: renewal date ${policy.renewalDate} has passed`];
     }
   }
 }
@@ -81,7 +91,8 @@ export function claimStatus(entry: TrustEntry, ctx: ClaimContext): ClaimResult {
   if (entry.refs.length === 0) {
     return { status: 'under-remediation', reasons: ['No console object backs this claim'] };
   }
-  const reasons = entry.refs.flatMap((ref) => refProblem(ref, ctx) ?? []);
+  // A document or policy reached through two references is named once.
+  const reasons = [...new Set(entry.refs.flatMap((ref) => refProblems(ref, ctx)))];
   if (reasons.length > 0) return { status: 'under-remediation', reasons };
   return { status: entry.planned ? 'in-progress' : 'in-place', reasons };
 }

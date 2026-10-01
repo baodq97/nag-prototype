@@ -19,9 +19,10 @@ overstating anything.
    model.
 4. `/policies` shows the renewal state. Point at "Expired" on the AI policy: its renewal date has
    passed even though it is approved.
-5. `/trust` is the public page. Six claims read "Under remediation": human review of uncertain
-   output, prompt-injection screening, the MCP server allow-list, tamper-evident records with
-   three integrity layers, independent timestamp anchoring, and the AI policy approved by
+5. `/trust` is the public page. Seven claims read "Under remediation": human review of uncertain
+   output, the emergency stop (its control links the overdue Kill switch runbook from step 3),
+   prompt-injection screening, the MCP server allow-list, tamper-evident records with three
+   integrity layers, independent timestamp anchoring, and the AI policy approved by
    leadership. Explain that each status is derived from tests, document and policy state and
    evidence verification, not typed in by hand, and that a failing check outranks "In
    progress" for work that is still planned.

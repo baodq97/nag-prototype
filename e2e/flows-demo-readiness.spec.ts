@@ -74,6 +74,7 @@ test('the trust page shows the failing claims as under remediation', async ({ pa
     'AI policy approved by leadership',
     'MCP server allow-list',
     'Independent timestamp anchoring',
+    'Emergency stop with dual approval to resume',
   ]) {
     const item = page.getByRole('listitem').filter({ hasText: name });
     await expect(item, name).toContainText('Under remediation');

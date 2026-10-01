@@ -23,7 +23,7 @@ const okRange: RangeVerification = { fromSeq: 1, toSeq: 50, ok: true, layers: []
 
 function context(over: Partial<ClaimContext> = {}): ClaimContext {
   const test = { id: 'T1', status: 'passing' } as ComplianceTest;
-  const control = { id: 'C1', testIds: ['T1'] } as Control;
+  const control = { id: 'C1', testIds: ['T1'], documentIds: [], policyIds: [] } as Control;
   return {
     controls: byId([control]),
     tests: byId([test]),
@@ -113,6 +113,24 @@ describe('claimStatus', () => {
     expect(claimStatus({ name: 'x', refs: [] }, context()).status).toBe('under-remediation');
   });
 
+  it('holds a control to the documents and policies it links, naming each once', () => {
+    const control = { id: 'C1', testIds: ['T1'], documentIds: ['D1'], policyIds: ['P2'] };
+    const ctx = context({
+      controls: byId([control as Control]),
+      documents: byId([
+        { ...documents[0]!, id: 'D1', status: 'approved', nextReview: '2026-01-01' },
+      ]),
+    });
+    const refs = [
+      { kind: 'control' as const, id: 'C1' },
+      { kind: 'policy' as const, id: 'P2' },
+    ];
+    expect(claimStatus({ name: 'x', refs }, ctx)).toEqual({
+      status: 'under-remediation',
+      reasons: ['D1: review overdue since 2026-01-01', 'P2: renewal date 2026-09-29 has passed'],
+    });
+  });
+
   it('lets a failing reference win over the planned flag', () => {
     const failing = context({ tests: byId([{ id: 'T1', status: 'failing' } as ComplianceTest]) });
     const entry = { name: 'x', refs: [{ kind: 'control' as const, id: 'C1' }], planned: true };
@@ -148,7 +166,8 @@ describe('seeded trust page', () => {
     expect(status('AI policy approved by leadership')).toBe('under-remediation');
     expect(status('MCP server allow-list')).toBe('under-remediation');
     expect(status('Independent timestamp anchoring')).toBe('under-remediation');
-    expect(entries.filter((e) => e.status === 'under-remediation')).toHaveLength(6);
+    expect(status('Emergency stop with dual approval to resume')).toBe('under-remediation');
+    expect(entries.filter((e) => e.status === 'under-remediation')).toHaveLength(7);
   });
 
   it('names the gap, the failing tests and the passed renewal as reasons', () => {
@@ -160,6 +179,12 @@ describe('seeded trust page', () => {
       'POL-01: renewal date 2026-09-15 has passed',
     ]);
     expect(reasons('Human review of uncertain output')).toEqual(['CTL-10: 1 of 2 tests failing']);
-    expect(reasons('MCP server allow-list')).toEqual(['CTL-14: 2 of 2 tests failing']);
+    expect(reasons('MCP server allow-list')).toEqual([
+      'CTL-14: 2 of 2 tests failing',
+      'POL-07 is not approved',
+    ]);
+    expect(reasons('Emergency stop with dual approval to resume')).toEqual([
+      'DOC-04: review overdue since 2026-09-12',
+    ]);
   });
 });
