@@ -566,7 +566,7 @@ const CROSS_CUTTING: Line[] = [
     MUST,
     'supports',
     'Reports which reviewers finished oversight training.',
-    'Make sure the staff who run or use AI systems understand them well enough.',
+    'Take measures that support the AI literacy of the staff who run or use AI systems.',
     { dates: [{ date: '2025-02-02' }] },
   ],
   [
