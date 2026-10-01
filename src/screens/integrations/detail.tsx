@@ -1,204 +1,191 @@
+import { type ReactNode, useCallback, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import { getIntegration, type McpSessionView, mcpSessions, tests, unlocksFor } from '../../data';
-import { getCode } from '../../domain/codes';
+import { tests, unlocksFor } from '../../data';
 import { INTEGRATION_KIND_LABEL } from '../../domain/integrations';
-import type { Integration, McpSessionState, ScopeEntry } from '../../domain/types';
-import { updateSession, useSession } from '../../session/store';
+import { dependentTests, scopeGroups } from '../../domain/summaries';
+import type { Integration } from '../../domain/types';
+import { useSession } from '../../session/store';
+import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
-import { type Column, DataTable } from '../../ui/DataTable';
-import { Drawer } from '../../ui/Drawer';
-import { Toggle } from '../../ui/Field';
-import { fmtDateTime } from '../../ui/format';
+import { fmtDate, fmtDateTime } from '../../ui/format';
 import { Page } from '../../ui/Page';
 import { StatusChip } from '../../ui/StatusChip';
-import { useOpenParam } from '../../ui/useOpenParam';
+import { type TabDef, Tabs } from '../../ui/Tabs';
+import { useUrlParam } from '../../ui/useUrlParam';
+import { ConnectFlow } from './connect-flow';
+import { CapabilityTags, ErrorPanel, IconTile } from './parts';
+import { ScopeDialog } from './scope-dialog';
+import { McpSessions } from './sessions';
+import { useIntegration } from './store';
+import { plural } from './text';
 
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+const TAB_IDS = ['overview', 'resources', 'tests'];
 
-function ScopeToggle({ integrationId, entry }: { integrationId: string; entry: ScopeEntry }) {
-  const key = `${integrationId}:${entry.id}`;
-  // A boolean (or undefined) held in the state, so this selector is stable.
-  const stored = useSession((s) => s.scope[key]);
-  const included = stored ?? entry.included;
+const DemoNote = () => (
+  <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-900 ring-1 ring-amber-200 ring-inset">
+    Demo data
+  </span>
+);
+
+function Facts({ items }: { items: [label: string, value: ReactNode][] }) {
   return (
-    <li className="flex items-center justify-between gap-3 py-2">
-      <Toggle
-        label={entry.label}
-        checked={included}
-        onChange={(next) => updateSession((s) => ({ ...s, scope: { ...s.scope, [key]: next } }))}
-      />
-      <span className="text-xs text-slate-600">{included ? 'Included' : 'Excluded'}</span>
-    </li>
+    <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+      {items.map(([label, value]) => (
+        <div key={label}>
+          <dt className="text-xs text-slate-600">{label}</dt>
+          <dd className="break-words text-slate-900">{value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
-/** A terminated session reads as a failure; the shared chip map has no entry for it. */
-const SessionState = ({ state }: { state: McpSessionState }) =>
-  state === 'terminated' ? (
-    <StatusChip variant="danger">Terminated</StatusChip>
-  ) : (
-    <StatusChip status={state} />
-  );
-
-const sessionColumns = (open: (id: string) => void): Column<McpSessionView>[] => [
-  {
-    key: 'id',
-    header: 'Session',
-    sortValue: (s) => s.id,
-    render: (s) => (
-      <button
-        type="button"
-        onClick={() => open(s.id)}
-        className="text-left font-medium text-accent-700 hover:underline"
-      >
-        {s.id}
-      </button>
-    ),
-  },
-  { key: 'client', header: 'Client', sortValue: (s) => s.client, render: (s) => s.client },
-  {
-    key: 'server',
-    header: 'Server',
-    sortValue: (s) => s.serverLabel,
-    render: (s) => s.serverLabel,
-  },
-  {
-    key: 'started',
-    header: 'Started',
-    sortValue: (s) => s.startedAt,
-    render: (s) => <span className="whitespace-nowrap">{fmtDateTime(s.startedAt)}</span>,
-  },
-  {
-    key: 'last',
-    header: 'Last activity',
-    sortValue: (s) => s.lastActivityAt,
-    render: (s) => <span className="whitespace-nowrap">{fmtDateTime(s.lastActivityAt)}</span>,
-  },
-  {
-    key: 'state',
-    header: 'State',
-    sortValue: (s) => s.state,
-    render: (s) => <SessionState state={s.state} />,
-  },
-];
-
-function McpSessions() {
-  const [openId, setOpen] = useOpenParam();
-  const sessions = mcpSessions();
-  const open = sessions.find((s) => s.id === openId);
-
+function Overview({ integration }: { integration: Integration }) {
+  const { connection, health } = integration;
   return (
-    <Card title="Sessions">
-      <p className="mb-3 text-xs text-slate-600">
-        These are the sessions the inspector saw before it lost its heartbeat. The values are seeded
-        demo data.
-      </p>
-      <DataTable
-        label="sessions"
-        rows={sessions}
-        columns={sessionColumns(setOpen)}
-        facets={[]}
-        rowKey={(s) => s.id}
-        searchText={(s) => `${s.id} ${s.client} ${s.serverLabel} ${s.state}`}
-        onRowClick={(s) => setOpen(s.id)}
-      />
-      <Drawer
-        open={open !== undefined}
-        title={open ? `Session ${open.id}` : ''}
-        subtitle="Tool calls"
-        onClose={() => setOpen(null)}
-      >
-        {open && (
-          <>
+    <div className="flex flex-col gap-4">
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card title="Connection details" actions={<DemoNote />}>
+          <Facts
+            items={[
+              ['Endpoint', connection.endpoint],
+              ['Auth method', connection.authMethod],
+              ['Key id', <span className="font-mono text-xs">{connection.keyId}</span>],
+              [
+                'Last rotated',
+                connection.lastRotatedAt ? fmtDate(connection.lastRotatedAt) : 'Not rotated yet',
+              ],
+            ]}
+          />
+        </Card>
+        <Card title="Health" actions={<DemoNote />}>
+          {health ? (
+            <Facts
+              items={[
+                [
+                  'Last heartbeat',
+                  integration.lastSyncAt ? fmtDateTime(integration.lastSyncAt) : 'Never',
+                ],
+                ['Events per minute', health.eventsPerMinute],
+                ['Error rate', `${health.errorRatePct}%`],
+              ]}
+            />
+          ) : (
             <p className="text-sm text-slate-700">
-              {open.client} on {open.serverLabel}, {open.state}. Last activity{' '}
-              {fmtDateTime(open.lastActivityAt)}.
+              Not connected, so there are no health figures yet.
             </p>
-            <div className="overflow-x-auto rounded-lg border border-slate-200">
-              <table aria-label={`Tool calls of ${open.id}`} className="w-full text-left text-sm">
-                <thead className="bg-slate-50 text-xs text-slate-600">
-                  <tr>
-                    <th scope="col" className="px-3 py-2 font-medium">
-                      Tool
-                    </th>
-                    <th scope="col" className="px-3 py-2 font-medium">
-                      Code
-                    </th>
-                    <th scope="col" className="px-3 py-2 font-medium">
-                      Outcome
-                    </th>
-                    <th scope="col" className="px-3 py-2 text-right font-medium">
-                      Duration (ms)
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {open.calls.map((c) => (
-                    <tr key={c.id}>
-                      <td className="px-3 py-2 align-top font-mono text-xs">{c.tool}</td>
-                      <td className="px-3 py-2 align-top">
-                        {getCode(c.code).label}{' '}
-                        <span className="font-mono text-xs text-slate-600">{c.code}</span>
-                      </td>
-                      <td className="px-3 py-2 align-top">
-                        <StatusChip status={c.outcome} />
-                      </td>
-                      <td className="px-3 py-2 text-right align-top tabular-nums">
-                        {c.durationMs}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
+          )}
+        </Card>
+      </div>
+      <Card title="Recent activity" actions={<DemoNote />}>
+        {integration.activity.length === 0 ? (
+          <p className="text-sm text-slate-700">
+            No activity yet. Connect the source to see its heartbeats here.
+          </p>
+        ) : (
+          <ul className="divide-y divide-slate-100" aria-label="Recent activity">
+            {integration.activity.map((a) => (
+              <li key={`${a.at}-${a.text}`} className="flex gap-4 py-2 text-sm">
+                <span className="w-40 shrink-0 text-slate-600">{fmtDateTime(a.at)}</span>
+                <span className="text-slate-900">{a.text}</span>
+              </li>
+            ))}
+          </ul>
         )}
-      </Drawer>
+      </Card>
+      {integration.kind === 'mcp-inspector' && <McpSessions />}
+    </div>
+  );
+}
+
+function Resources({
+  integration,
+  configure,
+}: {
+  integration: Integration;
+  configure: () => void;
+}) {
+  const stored = useSession((s) => s.scope);
+  const entries = integration.scope.map((e) => ({
+    ...e,
+    included: stored[`${integration.id}:${e.id}`] ?? e.included,
+  }));
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-slate-700">
+          The resources NAG reads from this source. Changes last for this browser session.
+        </p>
+        <Button onClick={configure}>Configure scope</Button>
+      </div>
+      {scopeGroups(entries).map((g) => (
+        <Card
+          key={g.kind}
+          title={g.label}
+          actions={
+            <span className="text-xs text-slate-700">
+              {g.included} of {g.total} in scope
+            </span>
+          }
+        >
+          <ul className="divide-y divide-slate-100" aria-label={g.label}>
+            {g.entries.map((e) => (
+              <li key={e.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                <span className="text-slate-900">{e.label}</span>
+                <StatusChip variant={e.included ? 'success' : 'neutral'}>
+                  {e.included ? 'In scope' : 'Out of scope'}
+                </StatusChip>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+function AutomatedTests({ integration }: { integration: Integration }) {
+  const fed = dependentTests(integration.id, tests);
+  return (
+    <Card title={`Tests fed by this source (${fed.length})`}>
+      {fed.length === 0 ? (
+        <p className="text-sm text-slate-700">No tests use this source.</p>
+      ) : (
+        <ul className="divide-y divide-slate-100">
+          {fed.map((t) => (
+            <li key={t.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+              <Link to={`/tests/${t.id}`} className="text-accent-700 hover:underline">
+                {t.name}
+              </Link>
+              <StatusChip status={t.status} />
+            </li>
+          ))}
+        </ul>
+      )}
     </Card>
   );
 }
 
-function IntegrationDetail({ integration }: { integration: Integration }) {
+function SidePanel({ integration }: { integration: Integration }) {
   const unlocks = unlocksFor(integration.id);
-  const fed = tests.filter((t) => t.integrationId === integration.id);
-
   return (
-    <Page
-      title={integration.name}
-      demo
-      description={integration.description}
-      actions={
-        <Link to="/integrations" className="text-sm font-medium text-accent-700 hover:underline">
-          All integrations
-        </Link>
-      }
-    >
-      <Card>
-        <div className="flex flex-wrap items-center gap-3">
-          <StatusChip status={integration.status} />
-          <span className="text-sm text-slate-700">
-            Type: {INTEGRATION_KIND_LABEL[integration.kind]}
-          </span>
-          <span className="text-sm text-slate-700">
-            {integration.lastSyncAt
-              ? `Last sync ${fmtDateTime(integration.lastSyncAt)}`
-              : 'Not synced yet'}
-          </span>
+    <aside aria-label="About this source" className="flex flex-col gap-4">
+      <Card title="About this source">
+        <div className="flex items-center gap-3">
+          <IconTile kind={integration.kind} size="lg" />
+          <div>
+            <p className="text-xs text-slate-600">Category</p>
+            <p className="font-medium text-slate-900">{INTEGRATION_KIND_LABEL[integration.kind]}</p>
+          </div>
         </div>
-        {integration.errorMessage && (
-          <p role="alert" className="mt-2 text-sm font-medium text-red-800">
-            {integration.errorMessage}
-          </p>
-        )}
-        <h2 className="mt-4 text-sm font-semibold text-slate-900">Capabilities</h2>
-        <ul className="mt-1 flex flex-wrap gap-1" aria-label="Capabilities">
-          {integration.capabilities.map((c) => (
-            <li
-              key={c}
-              className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700 ring-1 ring-slate-200 ring-inset"
-            >
-              {c}
-            </li>
+        <h3 className="mt-4 text-xs font-semibold text-slate-700">Capabilities</h3>
+        <div className="mt-1">
+          <CapabilityTags name={integration.name} capabilities={integration.capabilities} />
+        </div>
+        <h3 className="mt-4 text-xs font-semibold text-slate-700">Works with</h3>
+        <ul className="mt-1 list-disc pl-5 text-sm text-slate-800">
+          {integration.worksWith.map((w) => (
+            <li key={w}>{w}</li>
           ))}
         </ul>
         <p className="mt-4 rounded-md bg-accent-50 px-3 py-2 text-sm text-accent-800">
@@ -207,44 +194,87 @@ function IntegrationDetail({ integration }: { integration: Integration }) {
           {plural(unlocks.frameworks, 'framework', 'frameworks')}.
         </p>
       </Card>
+      <Card title="Help">
+        <p className="text-sm text-slate-700">
+          The configuration snippet appears in the connect flow and holds a key id, never a secret.
+          For anything else, ask the person who runs NAG for your organisation.
+        </p>
+      </Card>
+    </aside>
+  );
+}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card title="Scope">
-          <p className="text-xs text-slate-600">
-            Choose what NAG reads from this source. Changes last for this browser session.
-          </p>
-          <ul className="mt-2 divide-y divide-slate-100" aria-label="Scope">
-            {integration.scope.map((entry) => (
-              <ScopeToggle key={entry.id} integrationId={integration.id} entry={entry} />
-            ))}
-          </ul>
-        </Card>
-        <Card title={`Tests fed by this source (${fed.length})`}>
-          {fed.length === 0 ? (
-            <p className="text-sm text-slate-600">No tests use this source.</p>
-          ) : (
-            <ul className="flex flex-col gap-1.5">
-              {fed.map((t) => (
-                <li key={t.id} className="flex items-center justify-between gap-2 text-sm">
-                  <Link to={`/tests/${t.id}`} className="text-accent-700 hover:underline">
-                    {t.name}
-                  </Link>
-                  <StatusChip status={t.status} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+function IntegrationDetail({ integration }: { integration: Integration }) {
+  const [param, setTab] = useUrlParam('tab');
+  const [scopeOpen, setScopeOpen] = useState(false);
+  const [connectOpen, setConnectOpen] = useState(false);
+  const closeScope = useCallback(() => setScopeOpen(false), []);
+  const closeConnect = useCallback(() => setConnectOpen(false), []);
+  const connected = integration.status !== 'not-connected';
+  const tab = TAB_IDS.find((t) => t === param) ?? 'overview';
+  const fed = tests.filter((t) => t.integrationId === integration.id);
+
+  const tabs: TabDef[] = [
+    { id: 'overview', label: 'Overview', content: <Overview integration={integration} /> },
+    {
+      id: 'resources',
+      label: 'Resources',
+      count: integration.scope.length,
+      content: <Resources integration={integration} configure={() => setScopeOpen(true)} />,
+    },
+    {
+      id: 'tests',
+      label: 'Automated tests',
+      count: fed.length,
+      content: <AutomatedTests integration={integration} />,
+    },
+  ];
+
+  return (
+    <Page
+      title={integration.name}
+      demo
+      actions={
+        connected ? (
+          <Button variant="primary" onClick={() => setScopeOpen(true)}>
+            Configure scope
+          </Button>
+        ) : (
+          <Button variant="primary" onClick={() => setConnectOpen(true)}>
+            Connect
+          </Button>
+        )
+      }
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <StatusChip status={integration.status} />
+        <p className="text-sm text-slate-700">{integration.description}</p>
+        <Link
+          to="/integrations"
+          className="ml-auto text-sm font-medium text-accent-700 hover:underline"
+        >
+          All integrations
+        </Link>
       </div>
-
-      {integration.kind === 'mcp-inspector' && <McpSessions />}
+      <ErrorPanel integration={integration} />
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <Tabs
+          tabs={tabs}
+          label="Integration sections"
+          value={tab}
+          onChange={(id) => setTab(id === 'overview' ? null : id)}
+        />
+        <SidePanel integration={integration} />
+      </div>
+      {scopeOpen && <ScopeDialog integration={integration} onClose={closeScope} />}
+      {connectOpen && <ConnectFlow initialId={integration.id} onClose={closeConnect} />}
     </Page>
   );
 }
 
 export default function Screen() {
   const { id = '' } = useParams();
-  const integration = getIntegration(id);
+  const integration = useIntegration(id);
   if (!integration) {
     return (
       <Page title="Integration not found" demo>

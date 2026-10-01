@@ -34,6 +34,10 @@ test('filter tests, open a failing test, remediate and see the task', async ({ p
   expect(await drawer.getByRole('listitem').count()).toBeGreaterThanOrEqual(3);
 
   await drawer.getByRole('button', { name: 'Create task' }).click();
+  await page
+    .getByRole('dialog', { name: 'Create a task?' })
+    .getByRole('button', { name: 'Create task' })
+    .click();
   await expect(drawer.getByRole('status')).toContainText('created');
 
   await drawer.getByRole('button', { name: 'Close' }).click();
@@ -96,11 +100,12 @@ test('/controls?q= seeds the filter and a row opens the drawer', async ({ page }
 test('integration scope toggles hold their state while browsing', async ({ page }) => {
   const errors = collectErrors(page);
   await page.goto('/integrations/int-proxy');
-  const sandbox = page.getByRole('switch', { name: 'Internal sandbox' });
+  await expect(page.getByText(/Connecting this source unlocks \d+ tests?/)).toBeVisible();
+  await page.getByRole('button', { name: 'Configure scope' }).click();
+  const sandbox = page.getByRole('dialog').getByRole('switch', { name: 'Internal sandbox' });
   await expect(sandbox).toHaveAttribute('aria-checked', 'false');
   await sandbox.click();
   await expect(sandbox).toHaveAttribute('aria-checked', 'true');
-  await expect(page.getByText(/Connecting this source unlocks \d+ tests?/)).toBeVisible();
   expect(errors).toEqual([]);
 });
 

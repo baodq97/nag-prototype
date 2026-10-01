@@ -1,5 +1,7 @@
+import { BellRing, ChevronDown, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
 import { Link } from 'react-router';
-import { aiSystems, getSystem, NOW, rowsForSystem, tenant } from '../../data';
+import { aiSystems, ARTICLE_GROUPS, getSystem, NOW, rowsForSystem, tenant } from '../../data';
 import {
   COVERAGE_STATUS_LABEL,
   dateChip,
@@ -9,11 +11,13 @@ import {
   ROLE_LABEL,
 } from '../../domain/aiact';
 import { riskTierLabel, roleLabel } from '../../domain/classification';
+import { coverageByGroup, signalCount } from '../../domain/summaries';
 import type { AiSystemView, CoverageRow } from '../../domain/types';
 import { type Column, DataTable, type Facet } from '../../ui/DataTable';
 import { Drawer } from '../../ui/Drawer';
-import { DemoLabel } from '../../ui/Labels';
+import { fmtDate } from '../../ui/format';
 import { Page } from '../../ui/Page';
+import { RiskTierChip } from '../../ui/RiskTierChip';
 import { StatusChip } from '../../ui/StatusChip';
 import { useOpenParam } from '../../ui/useOpenParam';
 import { AttentionLine } from '../coverage/AttentionLine';
@@ -22,15 +26,6 @@ const DISCOVERY_LABEL = {
   gateway: 'Discovered from gateway traffic',
   manual: 'Registered manually',
 } as const;
-
-/** Inline marker for table cells; the page-level label stays the only one with the test id. */
-function DemoTag() {
-  return (
-    <span className="ml-1 inline-flex rounded-md bg-amber-100 px-1.5 py-0.5 text-xs font-semibold whitespace-nowrap text-amber-900 ring-1 ring-amber-300 ring-inset">
-      Demo data
-    </span>
-  );
-}
 
 /** Role filter value on /coverage: "both" when the system holds two roles. */
 const coverageRole = (system: AiSystemView) =>
@@ -81,7 +76,8 @@ function ArticleItem({ row, system }: { row: CoverageRow; system: AiSystemView }
       <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-700">
         {datesForPath(row.dates, path).map((d) => (
           <li key={`${d.date}-${d.path ?? ''}`}>
-            {d.date} · {dateChip(d.date, NOW, tenant.timeZone).label}
+            {fmtDate(d.date)}
+            {dateChip(d.date, NOW, tenant.timeZone).appliesNow && ' · Applies now'}
           </li>
         ))}
       </ul>
@@ -92,6 +88,8 @@ function ArticleItem({ row, system }: { row: CoverageRow; system: AiSystemView }
 function SystemDrawerBody({ system }: { system: AiSystemView }) {
   const { classification, signals } = system;
   const rows = rowsForSystem(system.id);
+  const [showArticles, setShowArticles] = useState(false);
+  const Chevron = showArticles ? ChevronDown : ChevronRight;
   return (
     <>
       <p className="text-sm text-slate-700">{system.description}</p>
@@ -100,8 +98,10 @@ function SystemDrawerBody({ system }: { system: AiSystemView }) {
         <h3 id="sys-classification" className="text-sm font-semibold text-slate-900">
           Classification
         </h3>
-        <ul className="mt-1 flex flex-col gap-1 text-sm text-slate-800">
-          <li>{riskTierLabel(classification.riskTier)}</li>
+        <ul className="mt-1 flex flex-col items-start gap-1 text-sm text-slate-800">
+          <li>
+            <RiskTierChip riskTier={classification.riskTier} />
+          </li>
           <li>{roleLabel(classification.roles)}</li>
           <li>{`Transparency trigger: ${classification.transparency ? 'Yes' : 'No'}`}</li>
         </ul>
@@ -114,9 +114,16 @@ function SystemDrawerBody({ system }: { system: AiSystemView }) {
         <ol className="mt-1 flex flex-col gap-2">
           {classification.reasoning.map((line) => (
             <li key={line.step} className="rounded-md border border-slate-200 px-3 py-2 text-sm">
-              <p className="font-medium text-slate-900">
-                {line.step} <span className="font-normal text-slate-700">· {line.answer}</span>
-              </p>
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-medium text-slate-900">
+                  {line.step} <span className="font-normal text-slate-700">· {line.answer}</span>
+                </p>
+                <span data-testid="reasoning-outcome" className="shrink-0">
+                  <StatusChip variant="neutral" description="">
+                    {line.outcome}
+                  </StatusChip>
+                </span>
+              </div>
               <p className="mt-0.5 text-xs text-slate-700">{line.reason}</p>
             </li>
           ))}
@@ -125,11 +132,8 @@ function SystemDrawerBody({ system }: { system: AiSystemView }) {
 
       {signals.length > 0 && (
         <section aria-labelledby="sys-signals">
-          <h3
-            id="sys-signals"
-            className="flex items-center gap-2 text-sm font-semibold text-slate-900"
-          >
-            Signals <DemoLabel />
+          <h3 id="sys-signals" className="text-sm font-semibold text-slate-900">
+            Signals ({signals.length})
           </h3>
           <ul className="mt-1 flex flex-col gap-2">
             {signals.map((s) => (
@@ -152,13 +156,31 @@ function SystemDrawerBody({ system }: { system: AiSystemView }) {
 
       <section aria-labelledby="sys-articles">
         <h3 id="sys-articles" className="text-sm font-semibold text-slate-900">
-          Applicable articles ({rows.length})
+          <button
+            type="button"
+            aria-expanded={showArticles}
+            aria-controls="sys-articles-list"
+            onClick={() => setShowArticles((v) => !v)}
+            className="inline-flex items-center gap-1 rounded hover:underline focus-visible:outline-2 focus-visible:outline-accent-600"
+          >
+            <Chevron size={14} aria-hidden />
+            Applicable articles ({rows.length})
+          </button>
         </h3>
-        <ul className="mt-1 flex flex-col gap-2">
-          {rows.map((row) => (
-            <ArticleItem key={row.id} row={row} system={system} />
+        <div id="sys-articles-list" hidden={!showArticles} className="mt-2 flex flex-col gap-3">
+          {coverageByGroup(rows).map(({ group, rows: inGroup }) => (
+            <div key={group}>
+              <h4 className="text-xs font-semibold text-slate-700">
+                {group}. {ARTICLE_GROUPS[group]}
+              </h4>
+              <ul className="mt-1 flex flex-col gap-2">
+                {inGroup.map((row) => (
+                  <ArticleItem key={row.id} row={row} system={system} />
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
         <p className="mt-3 text-sm">
           <Link
             to={`/coverage?${coverageQuery(system)}`}
@@ -203,7 +225,7 @@ export default function Screen() {
       key: 'risk',
       header: 'Risk tier',
       sortValue: (s) => riskTierLabel(s.classification.riskTier),
-      render: (s) => riskTierLabel(s.classification.riskTier),
+      render: (s) => <RiskTierChip riskTier={s.classification.riskTier} />,
     },
     {
       key: 'role',
@@ -215,15 +237,7 @@ export default function Screen() {
       key: 'discovery',
       header: 'Discovery',
       sortValue: (s) => s.discovery,
-      render: (s) =>
-        s.discovery === 'gateway' ? (
-          <>
-            {DISCOVERY_LABEL.gateway}
-            <DemoTag />
-          </>
-        ) : (
-          DISCOVERY_LABEL.manual
-        ),
+      render: (s) => DISCOVERY_LABEL[s.discovery],
     },
     {
       key: 'signals',
@@ -233,14 +247,13 @@ export default function Screen() {
         s.signals.length === 0 ? (
           'None'
         ) : (
-          <>
-            {s.signals.map((sig) => (
-              <span key={`${sig.kind}-${sig.observedAt}`} className="block">
-                {sig.text}
-              </span>
-            ))}
-            <DemoTag />
-          </>
+          <StatusChip
+            variant="warning"
+            icon={BellRing}
+            description="A seeded example that asks for a review. Open the system to read it."
+          >
+            {signalCount(s.signals.length)}
+          </StatusChip>
         ),
     },
   ];
@@ -248,16 +261,8 @@ export default function Screen() {
   return (
     <Page
       title="AI systems"
-      demo
-      description="The AI systems in this tenant's inventory. Each risk tier and role below is the result of replaying the answers a person recorded, not a stored value."
+      description="This is orientation to support compliance readiness, not legal advice. Risk tiers are replayed from recorded answers."
     >
-      <p className="text-sm text-slate-700">
-        This is orientation to support compliance readiness, not legal advice.
-      </p>
-      <p className="text-sm text-slate-700">
-        Discovery, drift alerts and modification flags are seeded examples (demo data); no runtime
-        is connected.
-      </p>
       <DataTable
         label="AI systems"
         rows={systems}
