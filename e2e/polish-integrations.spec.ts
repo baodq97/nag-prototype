@@ -55,6 +55,25 @@ test('/integrations has the tabs Connected, Available and Errors with their coun
   expect(errors).toEqual([]);
 });
 
+test('arrow keys move the selection and the focus together across the tabs', async ({ page }) => {
+  await page.goto('/integrations');
+  const tabs = page.getByRole('tablist', { name: 'Integration views' });
+  const connected = tabs.getByRole('tab', { name: /^Connected/ });
+  const available = tabs.getByRole('tab', { name: /^Available/ });
+  const errorsTab = tabs.getByRole('tab', { name: /^Errors/ });
+
+  await connected.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(available).toHaveAttribute('aria-selected', 'true');
+  await expect(available).toBeFocused();
+  await expect(page).toHaveURL(/tab=available/);
+
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('ArrowLeft');
+  await expect(errorsTab).toHaveAttribute('aria-selected', 'true');
+  await expect(errorsTab).toBeFocused();
+});
+
 test('Connected lists the error row first, with its icon, chip, tags, heartbeat and actions', async ({
   page,
 }) => {

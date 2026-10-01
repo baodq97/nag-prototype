@@ -48,7 +48,12 @@ export function Tabs({
               onKeyDown={(e) => {
                 const i = tabs.findIndex((x) => x.id === t.id);
                 const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
-                if (step) setActive(tabs[(i + step + tabs.length) % tabs.length]!.id);
+                if (!step) return;
+                e.preventDefault();
+                // Focus follows the selection: the old tab now has tabIndex -1.
+                const next = tabs[(i + step + tabs.length) % tabs.length]!.id;
+                setActive(next);
+                document.getElementById(`${base}-tab-${next}`)?.focus();
               }}
               className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium ${selected ? 'border-accent-600 text-accent-700' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
             >
