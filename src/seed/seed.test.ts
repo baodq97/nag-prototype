@@ -118,6 +118,11 @@ describe('article map', () => {
     }
   });
 
+  it('says on the monitoring and log rows how a financial institution meets them', () => {
+    const noted = articleMap.filter((r) => r.note?.startsWith('Financial institutions'));
+    expect(noted.map((r) => r.id)).toEqual(['aia-26-5', 'aia-26-6', 'aia-72']);
+  });
+
   it('makes NAG the control on exactly the seventeen continuous-evidence rows', () => {
     expect(byRole('control')).toEqual(
       [

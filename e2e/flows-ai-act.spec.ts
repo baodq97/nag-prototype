@@ -124,6 +124,8 @@ for (const c of CASES) {
     for (const article of c.articles) {
       await expect(dialog.getByRole('link', { name: article, exact: true })).toBeVisible();
     }
+    // The sector lines (financial-services governance) show on the rows that carry them.
+    for (const r of applicable) if (r.note) await expect(dialog, r.id).toContainText(r.note);
 
     // Follow one article link to the coverage table: the row's drawer says who owes it.
     const row = rowFor(c.follow);
@@ -181,6 +183,11 @@ test('the NAG role filter lists the three articles outside NAG scope', async ({ 
   await page.goto('/coverage');
   await expect(page.getByText(ORIENTATION)).toBeVisible();
   await expect(page.getByText('Showing 57 of 57 articles')).toBeVisible();
+  for (const id of ['aia-26-3', 'aia-99']) {
+    await expect(page.locator(`tr#${id}`)).toContainText(
+      articleMap.find((r) => r.id === id)!.note!,
+    );
+  }
   for (const label of ['Group', 'My role', 'Risk tier', 'Status']) {
     await expect(page.getByRole('combobox', { name: label, exact: true })).toBeVisible();
   }

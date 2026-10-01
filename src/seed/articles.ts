@@ -58,6 +58,10 @@ function toRow(group: ArticleGroup, defaults: Pick<ArticleRow, 'riskTiers' | 'da
 }
 
 const OUTSIDE_DOES = 'Nothing: this row is outside what NAG does.';
+// The demo tenant is a bank: for credit scoring, some deployer duties are met through the
+// governance financial-services law already asks of it.
+const FINANCIAL_GOVERNANCE =
+  'Financial institutions meet this duty through the internal-governance rules of financial-services law.';
 
 const PROHIBITED: Line[] = [
   [
@@ -405,6 +409,7 @@ const DEPLOYER: Line[] = [
     'control',
     'Monitors every request at runtime, quarantines doubtful output and records each signal for review.',
     'Inform the provider and the authority, and suspend use, when a risk or a serious incident appears.',
+    { note: FINANCIAL_GOVERNANCE },
   ],
   [
     '26(6)',
@@ -414,6 +419,9 @@ const DEPLOYER: Line[] = [
     'control',
     'Keeps the logs generated under your control for the configured retention period.',
     'Set a retention period of at least six months, unless other law says otherwise.',
+    {
+      note: `${FINANCIAL_GOVERNANCE} They keep the logs within that governance documentation.`,
+    },
   ],
   [
     '26(7)',
@@ -525,6 +533,9 @@ const VALUE_CHAIN: Line[] = [
     'control',
     'Collects runtime metrics, blocks and incidents continuously as input for the monitoring plan.',
     'Write the monitoring plan, set thresholds and act on what it shows.',
+    {
+      note: 'Financial institutions running an Annex III point 5 system (such as credit scoring) can fold this monitoring into the same financial-services governance.',
+    },
   ],
   [
     '73',
