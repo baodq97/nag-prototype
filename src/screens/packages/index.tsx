@@ -1,7 +1,20 @@
 import { Download } from 'lucide-react';
 import { useState } from 'react';
-import { controls, evidence, packageSections, tests } from '../../data';
-import type { AssessmentRoute, PackageSection, SectionSource } from '../../domain/types';
+import { Link } from 'react-router';
+import {
+  controls,
+  deployment,
+  evidence,
+  packageElements,
+  packageSections,
+  tests,
+} from '../../data';
+import type {
+  AssessmentRoute,
+  DeclarationGroup,
+  PackageSection,
+  SectionSource,
+} from '../../domain/types';
 import { Button } from '../../ui/Button';
 import { Card, Stat } from '../../ui/Card';
 import { StubLabel } from '../../ui/Labels';
@@ -32,6 +45,12 @@ const SOURCE_VARIANT = { runtime: 'info', template: 'neutral', customer: 'warnin
 function SourceChip({ source }: { source: SectionSource }) {
   return <StatusChip variant={SOURCE_VARIANT[source]}>{SOURCE_LABELS[source]}</StatusChip>;
 }
+
+const GROUP_TITLES: Record<DeclarationGroup, string> = {
+  declaration: 'Declaration of conformity',
+  deployer: 'Deployer agreement',
+  supplier: 'Supplier inputs',
+};
 
 function SectionList({ sections }: { sections: PackageSection[] }) {
   return (
@@ -64,7 +83,8 @@ const GUIDE_STEPS = [
 ];
 
 export default function Screen() {
-  const [route, setRoute] = useState<AssessmentRoute>('self-assessment');
+  const { scenario, label } = deployment();
+  const [route, setRoute] = useState<AssessmentRoute>(scenario.route);
   const [exporting, setExporting] = useState(false);
   const sections = packageSections.filter((s) => s.routes.includes(route));
 
@@ -80,6 +100,38 @@ export default function Screen() {
         </Button>
       }
     >
+      <p className="text-sm text-slate-700" data-testid="package-deployment">
+        <span className="font-medium text-slate-900">{label}</span>
+        {' · '}
+        {scenario.name}.{' '}
+        <Link to="/onboarding" className="font-medium text-accent-700 hover:underline">
+          Review in onboarding
+        </Link>
+      </p>
+
+      <section aria-label="Package checklist" className="grid gap-4 lg:grid-cols-3">
+        {packageElements().map((g) => (
+          <Card key={g.group} title={GROUP_TITLES[g.group]}>
+            <p className="mb-2 text-sm font-medium text-slate-900">
+              {g.complete} of {g.total} complete
+            </p>
+            <ul className="divide-y divide-slate-100">
+              {g.elements.map((e) => (
+                <li key={e.id} className="flex items-start justify-between gap-2 py-2">
+                  <span className="min-w-0 text-sm text-slate-800">{e.title}</span>
+                  <span className="flex shrink-0 flex-wrap justify-end gap-1">
+                    <SourceChip source={e.source} />
+                    <StatusChip variant={e.state === 'complete' ? 'success' : 'warning'}>
+                      {e.state === 'complete' ? 'Complete' : 'Missing'}
+                    </StatusChip>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </Card>
+        ))}
+      </section>
+
       <fieldset className="flex flex-wrap gap-3">
         <legend className="mb-1 text-sm font-medium text-slate-700">Assessment route</legend>
         {(Object.keys(ROUTE_LABELS) as AssessmentRoute[]).map((r) => (

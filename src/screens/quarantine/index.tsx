@@ -1,5 +1,13 @@
 import { useState } from 'react';
-import { currentUserId, escalationFor, personName, quarantine, tenant } from '../../data';
+import {
+  classifierConfig,
+  currentUserId,
+  escalationFor,
+  personName,
+  quarantine,
+  tenant,
+} from '../../data';
+import { bandLine, bandRanges } from '../../domain/classifier';
 import { checkJustification } from '../../domain/justification';
 import type { QuarantineItem } from '../../domain/types';
 import { sessionNow, updateSession, useSession } from '../../session/store';
@@ -12,7 +20,69 @@ import { fmtDateTime } from '../../ui/format';
 import { StubLabel } from '../../ui/Labels';
 import { Page } from '../../ui/Page';
 import { StatusChip } from '../../ui/StatusChip';
-import { fmtAge, fmtMinutes } from './format';
+import { fmtAge, fmtBandRange, fmtBelowRange, fmtMinutes } from './format';
+
+const TH = 'px-3 py-2 text-left text-xs font-semibold text-slate-700';
+const TD = 'px-3 py-2 align-top text-sm text-slate-800';
+
+function ClassifierCard() {
+  const { modelVersion, releaseThreshold, belowRelease } = classifierConfig;
+  // Highest band first, as a reader scans a severity list.
+  const rows = bandRanges(classifierConfig).reverse();
+  return (
+    <Card title="Classifier" actions={<StubLabel what="Classifier" />}>
+      <p className="mb-3 text-sm text-slate-700">
+        Model version <span className="font-mono text-xs">{modelVersion}</span>. The classifier only
+        scores; the band follows from the score. A band includes its lower bound and excludes its
+        upper bound.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[32rem]">
+          <caption className="sr-only">Classifier bands with score range and routing</caption>
+          <thead className="border-b border-slate-200 bg-slate-50">
+            <tr>
+              <th scope="col" className={TH}>
+                Band
+              </th>
+              <th scope="col" className={TH}>
+                Score range
+              </th>
+              <th scope="col" className={TH}>
+                Routing
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {rows.map((b) => (
+              <tr key={b.band}>
+                <th scope="row" className={TD}>
+                  <StatusChip status={b.band} />
+                </th>
+                <td className={`${TD} whitespace-nowrap tabular-nums`}>
+                  {fmtBandRange(b.min, b.max)}
+                </td>
+                <td className={TD}>{b.routing}</td>
+              </tr>
+            ))}
+            <tr>
+              <th scope="row" className={`${TD} font-medium`}>
+                Released
+              </th>
+              <td className={`${TD} whitespace-nowrap tabular-nums`}>
+                {fmtBelowRange(releaseThreshold)}
+              </td>
+              <td className={TD}>{belowRelease}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-3 text-sm text-slate-700">
+        Escalation is the same for every band: business hours only, from the primary reviewer to the
+        secondary reviewer to the manager, then expiry.
+      </p>
+    </Card>
+  );
+}
 
 const terminalDecision = () =>
   tenant.quarantineTerminalDecision === 'reject' ? 'rejected' : 'approved';
@@ -156,7 +226,7 @@ function ItemDetail({ item }: { item: QuarantineItem }) {
       <dl className="grid grid-cols-2 gap-3 text-sm">
         <div>
           <dt className="text-xs font-medium text-slate-600">Score</dt>
-          <dd className="tabular-nums">{item.score.toFixed(2)}</dd>
+          <dd className="tabular-nums">{bandLine(item.score, classifierConfig)}</dd>
         </div>
         <div>
           <dt className="text-xs font-medium text-slate-600">Band</dt>
@@ -253,6 +323,7 @@ export default function QuarantineScreen() {
           </li>
         </ul>
       </Card>
+      <ClassifierCard />
       <DataTable
         label="quarantine items"
         rows={quarantine}

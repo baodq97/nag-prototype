@@ -16,3 +16,15 @@ export function fmtAge(receivedAt: string): string {
   if (hours < 48) return `${hours} h`;
   return `${Math.floor(hours / 24)} d`;
 }
+
+/** Score range of a band: the lower bound is included, the upper bound is not (except 1.00). */
+export function fmtBandRange(min: number, max: number): string {
+  return max >= 1
+    ? `${min.toFixed(2)} to ${max.toFixed(2)}`
+    : `${min.toFixed(2)} to < ${max.toFixed(2)}`;
+}
+
+/** Score range below the release threshold. */
+export function fmtBelowRange(releaseThreshold: number): string {
+  return `below ${releaseThreshold.toFixed(2)}`;
+}

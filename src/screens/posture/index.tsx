@@ -1,6 +1,7 @@
 import { Link } from 'react-router';
 import {
   FRAMEWORK_NAMES,
+  deployment,
   detectionQuality,
   personName,
   postureSummary,
@@ -28,6 +29,13 @@ export default function Screen() {
       demo
       description="Where the tests and controls stand today, and what needs attention first. It supports compliance readiness and does not replace your own assessment."
     >
+      <Link
+        to="/onboarding"
+        className="w-fit rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600"
+      >
+        <StatusChip variant="info">{deployment().label}</StatusChip>
+      </Link>
+
       <section aria-label="Key figures" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat
           label="Tests passing"

@@ -64,6 +64,23 @@ describe('docs/demo-paths.md', () => {
     }
   });
 
+  it('walks through onboarding and the cards that show the demo capabilities', () => {
+    const byHeading = sections(doc);
+    expect(routePaths(byHeading.get('Compliance Officer')!)).toContain('/onboarding');
+    for (const text of [
+      'Integration level: App context · Scenario S1',
+      'Operations card',
+      'Classifier card',
+      'Sessions card',
+      'Erasure requests table',
+      'Codes card',
+      'checklist cards',
+    ]) {
+      expect(doc.replace(/\s+/g, ' '), text).toContain(text);
+    }
+    expect(doc).not.toMatch(/event type/i);
+  });
+
   it('has the matcher accept parameter routes and reject unknown ones', () => {
     expect(matches('/tests/:id', '/tests/TST-019')).toBe(true);
     expect(matches('/auditor/:auditId', '/auditor/AUD-2026-01')).toBe(true);

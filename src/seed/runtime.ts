@@ -1,16 +1,25 @@
 // Seeded runtime behaviour. No runtime is connected; every value below is demo data.
 
+import { bandFor } from '../domain/classifier';
 import type {
   CircuitBreaker,
+  ClassifierConfig,
+  CodeId,
+  ErasureRequest,
   EvidenceRecord,
+  Failover,
   FallbackMode,
   LatencyProfile,
+  LedgerSchedule,
   LineageNode,
   LineageTrace,
+  McpSession,
   PipelineStage,
   PolicyBundle,
   PrivacyEndpoint,
   QuarantineItem,
+  TimestampAuthority,
+  ToolCall,
 } from '../domain/types';
 import { NOW, tenant } from './base';
 import { fakeHash, pick, rng } from './prng';
@@ -22,15 +31,43 @@ export const MISSING_SEQ = 137;
 const LAST_SEQ = 211;
 const BATCH_SIZE = 16;
 
-const EVENT_TYPES = [
-  'request.allowed',
-  'request.allowed',
-  'request.allowed',
-  'request.blocked',
-  'request.quarantined',
-  'tool.call',
-  'review.decision',
+// Seven entries, drawn once per record: the draw count fixes every subject id after it.
+const RECORD_CODES: CodeId[] = [
+  'NAG-D001',
+  'NAG-D001',
+  'NAG-D001',
+  'NAG-D002',
+  'NAG-D003',
+  'NAG-D001',
+  'NAG-D005',
 ];
+
+/** Timestamp authorities (stubs with generic names); B took over from A in the night. */
+export const timestampAuthorities: TimestampAuthority[] = [
+  { id: 'tsa-a', name: 'Timestamp authority A (stub)', role: 'standby' },
+  { id: 'tsa-b', name: 'Timestamp authority B (stub)', role: 'active' },
+];
+
+/** Falls between the anchors of Merkle batches 7 and 8, so no batch has two authorities. */
+export const lastFailover: Failover = {
+  at: '2026-09-30T03:20:00.000Z',
+  fromId: 'tsa-a',
+  toId: 'tsa-b',
+  reason: 'Authority A timed out on three anchoring requests in a row',
+};
+
+const authorityAt = (anchoredAt: string) =>
+  timestampAuthorities.find(
+    (a) => a.id === (anchoredAt < lastFailover.at ? lastFailover.fromId : lastFailover.toId),
+  )!.name;
+
+/** The weekly full verification of the ledger, in tenant time. */
+export const ledgerSchedule: LedgerSchedule = {
+  name: 'Weekly full verification',
+  weekday: 3,
+  hour: 8,
+  minute: 0,
+};
 
 const ENDPOINTS = [
   '/v1/credit-score',
@@ -52,11 +89,12 @@ function buildEvidence(): EvidenceRecord[] {
       continue;
     }
     const batchId = Math.floor(index / BATCH_SIZE) + 1;
+    const anchoredAt = new Date(Date.parse(timestamp) + 240_000).toISOString();
     records.push({
       seq,
       timestamp,
       tenantId: tenant.id,
-      eventType: pick(random, EVENT_TYPES),
+      code: pick(random, RECORD_CODES),
       endpoint: pick(random, ENDPOINTS),
       subjectId: `subj-${String(1 + Math.floor(random() * 40)).padStart(4, '0')}`,
       digest: `hmac-sha256:${fakeHash(`content:${seq}`)}`,
@@ -66,9 +104,9 @@ function buildEvidence(): EvidenceRecord[] {
       batchId,
       merkleRoot: fakeHash(`batch:${batchId}`),
       anchor: {
-        provider: 'Timestamp authority (Stub)',
+        provider: authorityAt(anchoredAt),
         token: `tsa-${fakeHash(`anchor:${batchId}`).slice(0, 24)}`,
-        anchoredAt: new Date(Date.parse(timestamp) + 240_000).toISOString(),
+        anchoredAt,
       },
     });
     prevHash = hash;
@@ -81,6 +119,14 @@ export const evidence: EvidenceRecord[] = buildEvidence();
 
 /** Subjects the erasure demo uses: one with records next to the gap, one whose ranges all verify. */
 export const ERASURE_SUBJECTS = { withGap: 'subj-0007', clean: 'subj-0011' };
+
+/** Erasure requests received before the session; none is completed yet. */
+export const erasureRequests: ErasureRequest[] = [
+  { id: 'ER-0101', subjectId: 'subj-0021', receivedAt: '2026-09-21T07:12:00.000Z', state: 'open' },
+  { id: 'ER-0102', subjectId: 'subj-0029', receivedAt: '2026-09-24T13:40:00.000Z', state: 'open' },
+  { id: 'ER-0103', subjectId: 'subj-0003', receivedAt: '2026-09-25T09:05:00.000Z', state: 'open' },
+  { id: 'ER-0104', subjectId: 'subj-0017', receivedAt: '2026-09-30T06:45:00.000Z', state: 'open' },
+];
 
 // [id, name, budget, p50, p95, p99, breaches in 24 h, breaches in 7 days]. Seeded, not measured.
 const STAGES: [string, string, number, number, number, number, number, number][] = [
@@ -134,17 +180,35 @@ const QUARANTINE: [string, number, string][] = [
   ['2026-09-23T10:00:00.000Z', 0.55, 'Answer cites an outdated policy version'],
 ];
 
-const bandOf = (score: number) => (score >= 0.85 ? 'high' : score >= 0.6 ? 'medium' : 'low');
+/** The scoring classifier (stub). Routing describes the band only; escalation is the same for all. */
+export const classifierConfig: ClassifierConfig = {
+  modelVersion: 'quarantine-scorer 0.9.2',
+  releaseThreshold: 0.5,
+  bands: [
+    { band: 'low', min: 0.5, routing: 'Held for a reviewer; the flag is most likely harmless.' },
+    {
+      band: 'medium',
+      min: 0.6,
+      routing: 'Held for a reviewer; the flag may point to a real issue.',
+    },
+    { band: 'high', min: 0.85, routing: 'Held for a reviewer; the flag is likely a real issue.' },
+  ],
+  belowRelease: 'Released without review; the score stays on the evidence record.',
+};
 
-export const quarantine: QuarantineItem[] = QUARANTINE.map(([receivedAt, score, summary], i) => ({
-  id: `Q-${String(1041 + i)}`,
-  receivedAt,
-  endpoint: ENDPOINTS[i % 3]!,
-  policyBundleId: ['PB-09', 'PB-11', 'PB-12'][i % 3]!,
-  score,
-  band: bandOf(score),
-  summary,
-}));
+export const quarantine: QuarantineItem[] = QUARANTINE.map(([receivedAt, score, summary], i) => {
+  const band = bandFor(score, classifierConfig);
+  if (!band) throw new Error(`Seeded item ${i} scores below the release threshold`);
+  return {
+    id: `Q-${String(1041 + i)}`,
+    receivedAt,
+    endpoint: ENDPOINTS[i % 3]!,
+    policyBundleId: ['PB-09', 'PB-11', 'PB-12'][i % 3]!,
+    score,
+    band,
+    summary,
+  };
+});
 
 export const traces: LineageTrace[] = [
   {
@@ -221,6 +285,61 @@ export const lineage: LineageNode[] = [
     4400,
   ),
 ];
+
+// MCP sessions the inspector saw before it lost its heartbeat (05:12 UTC). The refund session
+// was cut off when a refund above the agent's limit was blocked.
+export const mcpSessions: McpSession[] = [
+  {
+    id: 'MCP-S-301',
+    client: 'support-orchestrator',
+    serverId: 'crm',
+    startedAt: '2026-09-30T04:02:10.000Z',
+    lastActivityAt: '2026-09-30T04:09:02.451Z',
+    state: 'closed',
+  },
+  {
+    id: 'MCP-S-302',
+    client: 'billing-agent',
+    serverId: 'payments',
+    startedAt: '2026-09-30T04:31:00.000Z',
+    lastActivityAt: '2026-09-30T04:38:12.035Z',
+    state: 'terminated',
+  },
+  {
+    id: 'MCP-S-303',
+    client: 'support-orchestrator',
+    serverId: 'crm',
+    startedAt: '2026-09-30T04:58:00.000Z',
+    lastActivityAt: '2026-09-30T05:08:16.210Z',
+    state: 'open',
+  },
+];
+
+// [session, tool, code, outcome, started at, duration in ms].
+const CALLS: [string, string, CodeId, ToolCall['outcome'], string, number][] = [
+  ['MCP-S-301', 'crm.lookup_customer', 'NAG-D001', 'success', '2026-09-30T04:02:11.000Z', 412],
+  ['MCP-S-301', 'crm.lookup_customer', 'NAG-D001', 'success', '2026-09-30T04:05:40.000Z', 388],
+  ['MCP-S-301', 'crm.lookup_customer', 'NAG-D001', 'success', '2026-09-30T04:09:02.000Z', 451],
+  ['MCP-S-302', 'invoice.fetch', 'NAG-D001', 'success', '2026-09-30T04:31:01.000Z', 296],
+  ['MCP-S-302', 'invoice.fetch', 'NAG-D001', 'success', '2026-09-30T04:33:20.000Z', 310],
+  ['MCP-S-302', 'payments.refund', 'NAG-D001', 'success', '2026-09-30T04:36:45.000Z', 742],
+  ['MCP-S-302', 'payments.refund', 'NAG-D002', 'cancelled', '2026-09-30T04:38:12.000Z', 35],
+  ['MCP-S-303', 'crm.lookup_customer', 'NAG-D001', 'success', '2026-09-30T04:58:01.000Z', 402],
+  ['MCP-S-303', 'crm.lookup_customer', 'NAG-D001', 'success', '2026-09-30T05:03:30.000Z', 377],
+  ['MCP-S-303', 'crm.lookup_customer', 'NAG-D001', 'error', '2026-09-30T05:08:15.000Z', 1210],
+];
+
+export const toolCalls: ToolCall[] = CALLS.map(
+  ([sessionId, tool, code, outcome, startedAt, durationMs], i) => ({
+    id: `call-${String(i + 1).padStart(2, '0')}`,
+    sessionId,
+    tool,
+    code,
+    outcome,
+    startedAt,
+    durationMs,
+  }),
+);
 
 const ART5 = [
   'Manipulative or deceptive techniques',

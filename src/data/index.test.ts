@@ -3,6 +3,7 @@ import {
   aiSystems,
   articleRows,
   controls,
+  erasureRequests,
   getArticleRow,
   getControl,
   getDocument,
@@ -37,6 +38,33 @@ function resolves(href: string): boolean {
   }
   return false;
 }
+
+describe('erasure requests', () => {
+  const now = '2026-09-30T08:00:00.000Z';
+
+  it('lists the seeded requests with their due date and clock', () => {
+    const rows = erasureRequests(now, []);
+    expect(rows.length).toBeGreaterThanOrEqual(4);
+    expect(rows.every((r) => !r.fromSession && r.state === 'open' && r.clock)).toBe(true);
+    const overdue = rows.find((r) => r.clock?.state === 'overdue')!;
+    expect([overdue.due, overdue.clock!.text]).toEqual(['2026-09-28', 'overdue by 2 working days']);
+  });
+
+  it('adds a row per session erasure, received at its start and stopped once attested', () => {
+    const rows = erasureRequests(now, [
+      { subjectId: 'subj-0007', stage: 'attested', startedAt: now, at: '2026-09-30T08:05:00.000Z' },
+      { subjectId: 'subj-0011', stage: 'confirm', startedAt: now, at: now },
+    ]);
+    const session = rows.filter((r) => r.fromSession);
+    expect(session.map((r) => [r.id, r.subjectId, r.receivedAt, r.due, r.state])).toEqual([
+      ['ER-S01', 'subj-0007', now, '2026-10-07', 'completed'],
+      ['ER-S02', 'subj-0011', now, '2026-10-07', 'open'],
+    ]);
+    expect(session[0]!.completedAt).toBe('2026-09-30T08:05:00.000Z');
+    expect(session[0]!.clock).toBeUndefined();
+    expect(session[1]!.clock?.text).toBe('due in 5 working days');
+  });
+});
 
 describe('search index', () => {
   it('sends every result to a page that shows it', () => {

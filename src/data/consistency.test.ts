@@ -1,20 +1,25 @@
 // Holds the numbers and statuses the screens show together: every figure below is read
 // through the selector layer, so a screen that shows it cannot disagree with another one.
 
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { countStates, staleRecords } from '../screens/auditor/states';
 import { appliesTo, coverageStatus } from '../domain/aiact';
 import { classify } from '../domain/classification';
 import { erasureSummary } from '../domain/erasure';
+import { runSummary } from '../domain/ledger-ops';
 import { daysUntil } from '../domain/time';
+import type { RangeVerification } from '../domain/types';
 import {
   ERASURE_SUBJECTS,
   NOW,
   aiSystems,
   articleRows,
   audits,
+  authorities,
   controlStatus,
   controls,
+  deployment,
   documentReview,
   documents,
   erasureFor,
@@ -24,6 +29,11 @@ import {
   getPolicy,
   getSystem,
   getTest,
+  integrations,
+  ledgerOperations,
+  lineage,
+  mcpSessions,
+  packageElements,
   policies,
   policyRenewal,
   postureSummary,
@@ -382,5 +392,110 @@ describe('screen numbers', () => {
     expect(byId['class-b']).toContain('p99');
     expect(byId['class-c']).toContain('p99');
     expect(byId['ingress']).toEqual([]);
+  });
+});
+
+describe('ledger operations', () => {
+  const ops = ledgerOperations();
+  const failing = (ranges: RangeVerification[]) =>
+    ranges.filter((r) => !r.ok).map((r) => ({ from: r.fromSeq, to: r.toSeq, layers: r.layers }));
+
+  it('replays the last run over the records held at Wed 08:00 tenant time', () => {
+    expect(ops.lastRun.at).toBe('2026-09-30T06:00:00.000Z');
+    expect(ops.nextRunAt).toBe('2026-10-07T06:00:00.000Z');
+    expect(ops.lastRun.records).toBe(evidence.filter((r) => r.timestamp <= ops.lastRun.at).length);
+    expect(ops.lastRun.records).toBeLessThan(evidence.length);
+  });
+
+  it('fails exactly where Verify fails, with the same messages, and only at 101–150', () => {
+    expect(failing(ops.lastRun.ranges)).toEqual(failing(verification()));
+    expect(ops.lastRun.failing.map((r) => [r.fromSeq, r.toSeq])).toEqual([[101, 150]]);
+    expect(runSummary(ops.lastRun)).toBe('Failed: 1 range (seq 101–150)');
+    expect(ops.lastRun.failing[0]!.layers[0]!.message).toBe('gap detected at seq 137');
+  });
+
+  it('names authority A on every anchor before the failover and B from it on', () => {
+    const { failover, authorities: list } = authorities();
+    expect(failover.from).toBe('Timestamp authority A (stub)');
+    expect(failover.to).toBe('Timestamp authority B (stub)');
+    expect(list.find((a) => a.role === 'active')?.id).toBe(failover.toId);
+    for (const r of evidence) {
+      const expected = r.anchor.anchoredAt < failover.at ? failover.from : failover.to;
+      expect(r.anchor.provider, `seq ${r.seq}`).toBe(expected);
+    }
+    const providers = new Set(evidence.map((r) => r.anchor.provider));
+    expect(providers).toEqual(new Set([failover.from, failover.to]));
+    // One batch, one anchor: no batch is split across the two authorities.
+    for (const batch of new Set(evidence.map((r) => r.batchId))) {
+      const names = new Set(
+        evidence.filter((r) => r.batchId === batch).map((r) => r.anchor.provider),
+      );
+      expect(names.size, `batch ${batch}`).toBe(1);
+    }
+  });
+});
+
+describe('conformity package and integration level', () => {
+  it('counts each checklist card from its elements, with valid sources and states', () => {
+    const groups = packageElements();
+    expect(groups.map((g) => g.group)).toEqual(['declaration', 'deployer', 'supplier']);
+    for (const g of groups) {
+      for (const e of g.elements) {
+        expect(['runtime', 'template', 'customer'], e.id).toContain(e.source);
+        expect(['complete', 'missing'], e.id).toContain(e.state);
+        expect(e.group).toBe(g.group);
+      }
+      expect(g.total).toBe(g.elements.length);
+      expect(g.complete).toBe(g.elements.filter((e) => e.state === 'complete').length);
+    }
+  });
+
+  it('reads the tenant level and scenario from one value, with the route of the scenario', () => {
+    const d = deployment();
+    expect(d.label).toBe('Integration level: App context · Scenario S1');
+    expect(d.levels).toContain(d.level);
+    expect(d.scenarios).toContain(d.scenario);
+    expect(d.scenario.route).toBe('self-assessment');
+    expect(d.scenarios.find((s) => s.id === 'S2')?.route).toBe('notified-body');
+  });
+
+  it('has onboarding, posture and packages read the level from the same selector', () => {
+    for (const screen of ['onboarding', 'posture', 'packages']) {
+      const source = readFileSync(
+        new URL(`../screens/${screen}/index.tsx`, import.meta.url),
+        'utf8',
+      );
+      expect(source, screen).toMatch(/\bdeployment\(\)/);
+      expect(source, screen).not.toMatch(/App context|Scenario S1|tenantDeployment/);
+    }
+  });
+});
+
+describe('MCP inspector sessions', () => {
+  const inspector = integrations.find((i) => i.kind === 'mcp-inspector')!;
+  const end = (c: { startedAt: string; durationMs: number }) =>
+    new Date(Date.parse(c.startedAt) + c.durationMs).toISOString();
+
+  it('ends every session at the end of its last call', () => {
+    for (const s of mcpSessions()) {
+      expect(s.calls.length, s.id).toBeGreaterThan(0);
+      expect(s.lastActivityAt, s.id).toBe(end(s.calls.at(-1)!));
+      expect(s.calls[0]!.startedAt >= s.startedAt, s.id).toBe(true);
+    }
+  });
+
+  it('has no activity after the inspector last synced', () => {
+    for (const s of mcpSessions()) {
+      expect(s.lastActivityAt <= inspector.lastSyncAt!, s.id).toBe(true);
+    }
+  });
+
+  it('only talks to servers in the inspector scope, with tools Lineage knows', () => {
+    const inScope = new Set(inspector.scope.filter((e) => e.included).map((e) => e.id));
+    const lineageTools = new Set(lineage.filter((n) => n.kind === 'mcp-tool').map((n) => n.label));
+    for (const s of mcpSessions()) {
+      expect(inScope.has(s.serverId), s.id).toBe(true);
+      for (const c of s.calls) expect(lineageTools.has(c.tool), c.id).toBe(true);
+    }
   });
 });

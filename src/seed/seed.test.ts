@@ -1,21 +1,28 @@
 // Checks that the seed holds what the screens promise.
 
 import { describe, expect, it } from 'vitest';
+import { bandFor } from '../domain/classifier';
+import { getCode, isCode } from '../domain/codes';
+import { erasureClock, erasureDue } from '../domain/erasure-deadline';
 import { depths, isDepthAllowed } from '../domain/lineage';
 import { articleMap } from './articles';
-import { frameworkItems, integrations } from './base';
+import { NOW, frameworkItems, integrations, tenant } from './base';
 import { controls, documents, policies, tests } from './catalogue';
-import { audits, packageSections, qmsTemplates, risks } from './governance';
+import { audits, declarationElements, packageSections, qmsTemplates, risks } from './governance';
 import {
   ERASURE_SUBJECTS,
   MISSING_SEQ,
   circuitBreaker,
+  classifierConfig,
+  erasureRequests,
   evidence,
   lineage,
+  mcpSessions,
   pipelineStages,
   policyBundles,
   privacyEndpoints,
   quarantine,
+  toolCalls,
   traces,
 } from './runtime';
 import { aiSystems } from './systems';
@@ -250,6 +257,51 @@ describe('runtime', () => {
     expect(quarantine.length).toBeGreaterThanOrEqual(12);
   });
 
+  it('puts every quarantined item in the band the classifier bounds give', () => {
+    for (const q of quarantine) expect(q.band, q.id).toBe(bandFor(q.score, classifierConfig));
+    expect(classifierConfig.bands.map((b) => [b.band, b.min])).toEqual([
+      ['low', 0.5],
+      ['medium', 0.6],
+      ['high', 0.85],
+    ]);
+    expect(classifierConfig.releaseThreshold).toBe(0.5);
+  });
+
+  it('uses only catalogue codes: at least 3 in evidence and 2 in tool calls', () => {
+    for (const x of [...evidence, ...toolCalls]) expect(isCode(x.code), String(x.code)).toBe(true);
+    expect(new Set(evidence.map((r) => r.code)).size).toBeGreaterThanOrEqual(3);
+    expect(new Set(toolCalls.map((c) => c.code)).size).toBeGreaterThanOrEqual(2);
+  });
+
+  it('has an erasure request overdue and one due within 2 working days at NOW', () => {
+    expect(erasureRequests.length).toBeGreaterThanOrEqual(4);
+    const clocks = erasureRequests.map((r) =>
+      erasureClock(erasureDue(r.receivedAt, tenant.timeZone), NOW, tenant.timeZone),
+    );
+    expect(clocks.some((c) => c.state === 'overdue')).toBe(true);
+    expect(clocks.some((c) => c.state === 'upcoming' && c.workingDays <= 2)).toBe(true);
+    expect(clocks.map((c) => c.text)).toContain('overdue by 2 working days');
+    expect(clocks.map((c) => c.text)).toContain('due in 2 working days');
+  });
+
+  it('has 3 or more MCP sessions with 10 or more calls, one cut off by a fail-closed block', () => {
+    expect(mcpSessions.length).toBeGreaterThanOrEqual(3);
+    expect(toolCalls.length).toBeGreaterThanOrEqual(10);
+    for (const c of toolCalls) {
+      expect(
+        mcpSessions.some((s) => s.id === c.sessionId),
+        c.id,
+      ).toBe(true);
+    }
+    const lastCode = (id: string) => toolCalls.filter((c) => c.sessionId === id).at(-1)?.code;
+    const blocked = mcpSessions.filter(
+      (s) => lastCode(s.id) && getCode(lastCode(s.id)!).label === 'Blocked fail-closed',
+    );
+    expect(blocked).toHaveLength(1);
+    expect(blocked[0]!.state).toBe('terminated');
+    expect(mcpSessions.filter((s) => s.state === 'terminated')).toEqual(blocked);
+  });
+
   it('has the lineage traces the screen needs', () => {
     expect(traces.length).toBeGreaterThanOrEqual(3);
     const d = depths(lineage);
@@ -287,6 +339,15 @@ describe('governance', () => {
     const annex = packageSections.filter((s) => s.annexIv);
     expect(annex.filter((s) => s.source === 'runtime')).toHaveLength(4);
     expect(annex.filter((s) => s.source === 'template')).toHaveLength(5);
+  });
+
+  it('has the declaration, deployer and supplier elements the package lists', () => {
+    const titles = (group: string) =>
+      declarationElements.filter((e) => e.group === group).map((e) => e.title);
+    expect(titles('declaration').length).toBeGreaterThanOrEqual(8);
+    expect(titles('deployer').length).toBeGreaterThanOrEqual(2);
+    expect(titles('supplier')).toEqual(['Supplier attestation', 'Component list']);
+    expect(new Set(declarationElements.map((e) => e.id)).size).toBe(declarationElements.length);
   });
 
   it('has an audit using all five tracker states', () => {
