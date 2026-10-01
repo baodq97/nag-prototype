@@ -1,8 +1,10 @@
 import { ShieldCheck } from 'lucide-react';
 import { type ReactNode, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { evidence, verification } from '../../data';
+import { authorities, evidence, ledgerOperations, verification } from '../../data';
+import { CODES, getCode } from '../../domain/codes';
 import { pageForRange } from '../../domain/evidence-paging';
+import { runSummary } from '../../domain/ledger-ops';
 import type { EvidenceRecord, RangeVerification } from '../../domain/types';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
@@ -53,10 +55,14 @@ const columns = (open: (r: EvidenceRecord) => void): Column<EvidenceRecord>[] =>
   },
   { key: 'tenant', header: 'Tenant', render: (r) => r.tenantId },
   {
-    key: 'event',
-    header: 'Event type',
-    sortValue: (r) => r.eventType,
-    render: (r) => <span className="font-mono text-xs">{r.eventType}</span>,
+    key: 'code',
+    header: 'Code',
+    sortValue: (r) => getCode(r.code).label,
+    render: (r) => (
+      <span className="whitespace-nowrap">
+        {getCode(r.code).label} <span className="font-mono text-xs text-slate-600">{r.code}</span>
+      </span>
+    ),
   },
   {
     key: 'endpoint',
@@ -76,11 +82,11 @@ const columns = (open: (r: EvidenceRecord) => void): Column<EvidenceRecord>[] =>
 ];
 
 const facets: Facet<EvidenceRecord>[] = [
-  { key: 'event', label: 'Event type', value: (r) => r.eventType },
+  { key: 'code', label: 'Code', value: (r) => getCode(r.code).label },
   { key: 'endpoint', label: 'Endpoint', value: (r) => r.endpoint },
 ];
 
-function Pair({ label, children }: { label: string; children: ReactNode }) {
+function Pair({ label, children }: { label: ReactNode; children: ReactNode }) {
   return (
     <div>
       <dt className="text-xs font-medium text-slate-600">{label}</dt>
@@ -102,9 +108,16 @@ function RecordDetail({ record }: { record: EvidenceRecord }) {
   return (
     <>
       <p className="text-sm text-slate-700">
-        {record.eventType} on <span className="font-mono text-xs">{record.endpoint}</span> at{' '}
-        {fmtDateTime(record.timestamp)}. Only a keyed digest is kept, never the content.
+        {getCode(record.code).label} on <span className="font-mono text-xs">{record.endpoint}</span>{' '}
+        at {fmtDateTime(record.timestamp)}. Only a keyed digest is kept, never the content.
       </p>
+      <Layer title="Code">
+        <Pair label="Label">{getCode(record.code).label}</Pair>
+        <Pair label="Code ID">
+          <span className="font-mono text-xs">{record.code}</span>
+        </Pair>
+        <Pair label="Kind">{getCode(record.code).kind === 'decision' ? 'Decision' : 'Error'}</Pair>
+      </Layer>
       <Layer title="L1 · Hash chain">
         <Pair label="Previous hash">
           <span className="font-mono text-xs">{record.prevHash}</span>
@@ -210,6 +223,104 @@ function VerificationResults({
   );
 }
 
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const two = (n: number) => String(n).padStart(2, '0');
+
+function OperationsCard() {
+  const { schedule, lastRun, nextRunAt } = useMemo(() => ledgerOperations(), []);
+  const { authorities: list, failover } = authorities();
+  const failing = lastRun.failing.flatMap((r) => r.layers.filter((l) => !l.ok));
+  return (
+    <Card title="Operations">
+      <dl className="flex flex-col gap-2">
+        <Pair label="Schedule">
+          {schedule.name}, every {WEEKDAYS[schedule.weekday]} {two(schedule.hour)}:
+          {two(schedule.minute)} tenant time
+        </Pair>
+        <Pair label="Next run">{fmtDateTime(nextRunAt)}</Pair>
+        <Pair label="Last run">
+          {fmtDateTime(lastRun.at)}, {lastRun.records} records covered
+        </Pair>
+        <Pair label="Last run result">
+          <StatusChip variant={lastRun.failing.length > 0 ? 'danger' : 'success'}>
+            {runSummary(lastRun)}
+          </StatusChip>
+          {failing.length > 0 && (
+            <ul className="mt-1 text-xs font-semibold text-red-700">
+              {failing.map((l) => (
+                <li key={`${l.layer}-${l.message}`}>
+                  {l.layer}: {l.message}
+                </li>
+              ))}
+            </ul>
+          )}
+          <span className="mt-1 block text-xs text-slate-600">
+            Computed by the same verification as Verify, over the records held at the run time.
+          </span>
+        </Pair>
+        <Pair
+          label={
+            <>
+              Timestamp authorities <StubLabel what="The timestamp authorities" />
+            </>
+          }
+        >
+          <ul className="flex flex-col gap-1">
+            {list.map((a) => (
+              <li key={a.id} className="flex items-center gap-2">
+                {a.name}
+                <StatusChip variant={a.role === 'active' ? 'success' : 'neutral'}>
+                  {a.role === 'active' ? 'Active' : 'Standby'}
+                </StatusChip>
+              </li>
+            ))}
+          </ul>
+          <span className="mt-1 block text-xs text-slate-600">
+            Last failover {fmtDateTime(failover.at)}: {failover.from} → {failover.to}.{' '}
+            {failover.reason}
+          </span>
+        </Pair>
+      </dl>
+    </Card>
+  );
+}
+
+function CodesCard() {
+  return (
+    <Card title="Codes">
+      <p className="mb-2 text-xs text-slate-600">
+        Some codes do not occur in this demo&apos;s records.
+      </p>
+      <table className="w-full text-left text-sm">
+        <thead className="text-xs text-slate-600">
+          <tr>
+            <th scope="col" className="px-2 py-1 font-medium">
+              Code ID
+            </th>
+            <th scope="col" className="px-2 py-1 font-medium">
+              Kind
+            </th>
+            <th scope="col" className="px-2 py-1 font-medium">
+              Label
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {CODES.map((c) => (
+            <tr key={c.id} data-testid={`code-${c.id}`}>
+              <th scope="row" className="px-2 py-1 font-mono text-xs font-medium">
+                {c.id}
+              </th>
+              <td className="px-2 py-1">{c.kind === 'decision' ? 'Decision' : 'Error'}</td>
+              <td className="px-2 py-1">{c.label}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
+  );
+}
+
 export default function EvidenceScreen() {
   const [selected, setSelected] = useState<EvidenceRecord | null>(null);
   const [results, setResults] = useState<RangeVerification[] | null>(null);
@@ -260,6 +371,10 @@ export default function EvidenceScreen() {
           onFollow={() => setResetKey((k) => k + 1)}
         />
       )}
+      <div className="grid items-start gap-4 lg:grid-cols-2">
+        <OperationsCard />
+        <CodesCard />
+      </div>
       <DataTable
         label="evidence records"
         rows={evidence}
@@ -271,7 +386,9 @@ export default function EvidenceScreen() {
         resetKey={resetKey}
         facets={facets}
         rowKey={(r) => String(r.seq)}
-        searchText={(r) => `${r.seq} ${r.eventType} ${r.endpoint} ${r.tenantId} ${r.digest}`}
+        searchText={(r) =>
+          `${r.seq} ${r.code} ${getCode(r.code).label} ${r.endpoint} ${r.tenantId} ${r.digest}`
+        }
         onRowClick={setSelected}
         initialSort={INITIAL_SORT}
       />

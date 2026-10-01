@@ -1,14 +1,22 @@
 import { Check, Circle } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
-import { ERASURE_SUBJECTS, erasureFor, evidence, privacyEndpoints } from '../../data';
+import {
+  ERASURE_SUBJECTS,
+  type ErasureRequestView,
+  erasureFor,
+  erasureRequests,
+  evidence,
+  privacyEndpoints,
+} from '../../data';
 import { erasureSummary, rangeText } from '../../domain/erasure';
 import { type ErasureRun, sessionNow, updateSession, useSession } from '../../session/store';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { TextField, Toggle } from '../../ui/Field';
-import { fmtDateTime } from '../../ui/format';
+import { fmtDate, fmtDateTime } from '../../ui/format';
 import { StubLabel } from '../../ui/Labels';
 import { Page } from '../../ui/Page';
+import type { ChipVariant } from '../../ui/status';
 import { StatusChip } from '../../ui/StatusChip';
 
 const countFor = (subjectId: string) => evidence.filter((r) => r.subjectId === subjectId).length;
@@ -215,6 +223,85 @@ function ErasureFlow() {
   );
 }
 
+const CLOCK_HEADERS = ['Request', 'Subject', 'Received', 'Due', 'Clock', 'State'];
+
+/** Overdue is a danger; due today or within 2 working days a warning; later is plain. */
+const clockVariant = (clock: NonNullable<ErasureRequestView['clock']>): ChipVariant =>
+  clock.state === 'overdue'
+    ? 'danger'
+    : clock.state === 'today' || clock.workingDays <= 2
+      ? 'warning'
+      : 'neutral';
+
+function ErasureRequests() {
+  const erasures = useSession((s) => s.erasures);
+  const requests = erasureRequests(sessionNow(), erasures);
+  return (
+    <Card title="Erasure requests">
+      <p className="mb-3 text-sm text-slate-700">
+        An erasure request is due five working days (Monday to Friday) after the day it was received
+        in tenant time, and at most 30 calendar days after. Public holidays are not modelled. The
+        clock stops when the erasure is attested.
+      </p>
+      <div className="overflow-x-auto rounded-lg border border-slate-200">
+        <table aria-label="Erasure requests" className="w-full text-left text-sm">
+          <thead className="bg-slate-50 text-xs text-slate-600">
+            <tr>
+              {CLOCK_HEADERS.map((h) => (
+                <th key={h} scope="col" className="px-3 py-2 font-medium">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {requests.map((r) => (
+              <tr key={r.id}>
+                <td className="px-3 py-2 align-top">
+                  <span className="font-mono text-xs">{r.id}</span>
+                  {r.fromSession && (
+                    <span className="block text-xs text-slate-600">Started in this session</span>
+                  )}
+                </td>
+                <td className="px-3 py-2 align-top font-mono text-xs">{r.subjectId}</td>
+                <td className="px-3 py-2 align-top">
+                  <time dateTime={r.receivedAt}>{fmtDateTime(r.receivedAt)}</time>
+                </td>
+                <td className="px-3 py-2 align-top">
+                  <time dateTime={r.due}>{fmtDate(r.due)}</time>
+                </td>
+                <td className="px-3 py-2 align-top">
+                  {r.clock ? (
+                    <StatusChip variant={clockVariant(r.clock)}>{r.clock.text}</StatusChip>
+                  ) : (
+                    <span className="text-xs text-slate-600">Stopped</span>
+                  )}
+                </td>
+                <td className="px-3 py-2 align-top">
+                  {r.state === 'completed' && r.completedAt ? (
+                    <>
+                      <StatusChip variant="success">Completed</StatusChip>
+                      <time dateTime={r.completedAt} className="mt-1 block text-xs text-slate-600">
+                        {fmtDateTime(r.completedAt)}
+                      </time>
+                    </>
+                  ) : (
+                    <StatusChip variant="info">Open</StatusChip>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-3 text-xs text-slate-600">
+        The first four requests are seeded for this demo. A request is added when you start an
+        erasure above.
+      </p>
+    </Card>
+  );
+}
+
 function Attestations() {
   const erasures = useSession((s) => s.erasures);
   const attested = erasures.filter((e) => e.stage === 'attested');
@@ -261,6 +348,7 @@ export default function PrivacyScreen() {
     >
       <ContentLogging />
       <ErasureFlow />
+      <ErasureRequests />
       <Attestations />
     </Page>
   );

@@ -1,6 +1,7 @@
 // Holds the numbers and statuses the screens show together: every figure below is read
 // through the selector layer, so a screen that shows it cannot disagree with another one.
 
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { countStates, staleRecords } from '../screens/auditor/states';
 import { appliesTo, coverageStatus } from '../domain/aiact';
@@ -456,6 +457,17 @@ describe('conformity package and integration level', () => {
     expect(d.scenarios).toContain(d.scenario);
     expect(d.scenario.route).toBe('self-assessment');
     expect(d.scenarios.find((s) => s.id === 'S2')?.route).toBe('notified-body');
+  });
+
+  it('has onboarding, posture and packages read the level from the same selector', () => {
+    for (const screen of ['onboarding', 'posture', 'packages']) {
+      const source = readFileSync(
+        new URL(`../screens/${screen}/index.tsx`, import.meta.url),
+        'utf8',
+      );
+      expect(source, screen).toMatch(/\bdeployment\(\)/);
+      expect(source, screen).not.toMatch(/App context|Scenario S1|tenantDeployment/);
+    }
   });
 });
 

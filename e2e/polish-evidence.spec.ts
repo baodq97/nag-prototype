@@ -3,6 +3,7 @@
 
 import { expect, test, type Page } from '@playwright/test';
 import { evidence } from '../src/data';
+import { getCode } from '../src/domain/codes';
 import { collectErrors } from './helpers';
 
 const PAGE_SIZE = 50;
@@ -81,11 +82,15 @@ test('the count stays the count after filtering, across all pages', async ({ pag
   await expectPage(page, 2);
   await expect(page.getByText('210 of 210 evidence records')).toBeVisible();
 
-  // Pick the event type with the most records, so more than one page can be left.
-  const byType = new Map<string, number>();
-  for (const r of evidence) byType.set(r.eventType, (byType.get(r.eventType) ?? 0) + 1);
-  const [type, total] = [...byType.entries()].sort((a, b) => b[1] - a[1])[0]!;
-  await page.getByLabel('Event type').selectOption(type);
+  // Pick the code with the most records, so more than one page can be left.
+  const byCode = new Map<string, number>();
+  for (const r of evidence) {
+    const label = getCode(r.code).label;
+    byCode.set(label, (byCode.get(label) ?? 0) + 1);
+  }
+  const [code, total] = [...byCode.entries()].sort((a, b) => b[1] - a[1])[0]!;
+  // The facet's name also holds its selected option ("Code All").
+  await page.getByRole('combobox', { name: /^Code\b/ }).selectOption(code);
   await expect(page.getByText(`${total} of 210 evidence records`)).toBeVisible();
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   await expect(pager(page)).toContainText(`1–${Math.min(total, PAGE_SIZE)} of ${total}`);
