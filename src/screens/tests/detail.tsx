@@ -9,8 +9,7 @@ import { Drawer } from '../../ui/Drawer';
 import { fmtDate, fmtDateTime } from '../../ui/format';
 import { Page } from '../../ui/Page';
 import { StatusChip } from '../../ui/StatusChip';
-import { Tabs } from '../../ui/Tabs';
-import { TaskList } from '../../ui/ObjectDrawer';
+import { ObjectActivity } from '../../ui/ObjectDrawer';
 import { testFrameworkStatus } from './helpers';
 
 function Meta({ label, children }: { label: string; children: ReactNode }) {
@@ -171,50 +170,7 @@ function TestDetail({ test }: { test: ComplianceTest }) {
       </div>
 
       <Card>
-        <Tabs
-          label="Test activity"
-          tabs={[
-            {
-              id: 'history',
-              label: 'History',
-              content:
-                test.history.length === 0 ? (
-                  <p className="text-sm text-slate-600">No history yet.</p>
-                ) : (
-                  <ol className="flex flex-col gap-2">
-                    {[...test.history].reverse().map((h, i) => (
-                      <li key={i} className="text-sm">
-                        <span className="text-slate-900">{h.text}</span>
-                        <span className="block text-xs text-slate-600">
-                          {h.actor} · {fmtDateTime(h.at)}
-                        </span>
-                      </li>
-                    ))}
-                  </ol>
-                ),
-            },
-            { id: 'tasks', label: 'Tasks', content: <TaskList objectId={test.id} /> },
-            {
-              id: 'comments',
-              label: 'Comments',
-              content:
-                test.comments.length === 0 ? (
-                  <p className="text-sm text-slate-600">No comments yet.</p>
-                ) : (
-                  <ul className="flex flex-col gap-2">
-                    {test.comments.map((c, i) => (
-                      <li key={i} className="rounded-md bg-slate-50 px-3 py-2 text-sm">
-                        <p>{c.text}</p>
-                        <p className="mt-1 text-xs text-slate-600">
-                          {c.author} · {fmtDateTime(c.at)}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
-                ),
-            },
-          ]}
-        />
+        <ObjectActivity object={{ ...test, kind: 'Test' }} />
       </Card>
 
       {remediating && <RemediationDrawer test={test} open onClose={() => setRemediating(false)} />}

@@ -115,6 +115,27 @@ function Comments({ comments }: { comments: Comment[] }) {
   );
 }
 
+/** History / Tasks / Comments of an object; the drawer and the full test page share it. */
+export function ObjectActivity({
+  object,
+  initialTab,
+}: {
+  object: Pick<DrawerObject, 'id' | 'kind' | 'history' | 'comments'>;
+  initialTab?: 'history' | 'tasks' | 'comments';
+}) {
+  return (
+    <Tabs
+      label={`${object.kind} activity`}
+      initial={initialTab}
+      tabs={[
+        { id: 'history', label: 'History', content: <History entries={object.history} /> },
+        { id: 'tasks', label: 'Tasks', content: <TaskList objectId={object.id} /> },
+        { id: 'comments', label: 'Comments', content: <Comments comments={object.comments} /> },
+      ]}
+    />
+  );
+}
+
 /** The one detail drawer for every console object. `children` adds object-specific detail. */
 export function ObjectDrawer({
   object,
@@ -145,19 +166,7 @@ export function ObjectDrawer({
             <Meta label="Frameworks">{itemRefs(object.frameworkItemIds) || '–'}</Meta>
           </dl>
           {children}
-          <Tabs
-            label={`${object.kind} activity`}
-            initial={initialTab}
-            tabs={[
-              { id: 'history', label: 'History', content: <History entries={object.history} /> },
-              { id: 'tasks', label: 'Tasks', content: <TaskList objectId={object.id} /> },
-              {
-                id: 'comments',
-                label: 'Comments',
-                content: <Comments comments={object.comments} />,
-              },
-            ]}
-          />
+          <ObjectActivity object={object} initialTab={initialTab} />
         </>
       )}
     </Drawer>
