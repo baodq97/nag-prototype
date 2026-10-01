@@ -268,11 +268,103 @@ export interface Integration {
   scope: ScopeEntry[];
 }
 
+/** Ids of the decision and error codes NAG writes; the catalogue is in `codes.ts`. */
+export type CodeId =
+  | 'NAG-D001'
+  | 'NAG-D002'
+  | 'NAG-D003'
+  | 'NAG-D004'
+  | 'NAG-D005'
+  | 'NAG-D006'
+  | 'NAG-E001'
+  | 'NAG-E002'
+  | 'NAG-E003';
+
+export interface DecisionCode {
+  id: CodeId;
+  kind: 'decision' | 'error';
+  /** Short plain-English label. */
+  label: string;
+}
+
+/** The weekly full verification of the evidence ledger, in tenant time. */
+export interface LedgerSchedule {
+  name: string;
+  /** 0 is Sunday. */
+  weekday: number;
+  hour: number;
+  minute: number;
+}
+
+/** An external timestamp authority (stub) that anchors the Merkle batches. */
+export interface TimestampAuthority {
+  id: string;
+  name: string;
+  role: 'active' | 'standby';
+}
+
+/** A switch from one timestamp authority to the other. */
+export interface Failover {
+  at: string;
+  fromId: string;
+  toId: string;
+  reason: string;
+}
+
+/** A data subject's request to have their content erased. */
+export interface ErasureRequest {
+  id: string;
+  subjectId: string;
+  receivedAt: string;
+  state: 'open' | 'completed';
+  completedAt?: string;
+}
+
+export type DeclarationGroup = 'declaration' | 'deployer' | 'supplier';
+
+/** One element the conformity package needs, with where it comes from and whether it is there. */
+export interface DeclarationElement {
+  id: string;
+  group: DeclarationGroup;
+  title: string;
+  source: SectionSource;
+  state: 'complete' | 'missing';
+}
+
+/** How deep NAG is wired into the tenant's AI applications. */
+export type IntegrationLevel = 'foundation' | 'app-context' | 'evidence-grade';
+
+/** S1: the provider assesses itself; S2: a notified body assesses it. */
+export type Scenario = 'S1' | 'S2';
+
+export type McpSessionState = 'open' | 'closed' | 'terminated';
+
+/** A session between an agent (the client) and an MCP server, as the inspector saw it. */
+export interface McpSession {
+  id: string;
+  client: string;
+  /** Id of a scope entry of the MCP inspector. */
+  serverId: string;
+  startedAt: string;
+  lastActivityAt: string;
+  state: McpSessionState;
+}
+
+export interface ToolCall {
+  id: string;
+  sessionId: string;
+  tool: string;
+  code: CodeId;
+  outcome: LineageOutcome;
+  startedAt: string;
+  durationMs: number;
+}
+
 export interface EvidenceRecord {
   seq: number;
   timestamp: string;
   tenantId: string;
-  eventType: string;
+  code: CodeId;
   endpoint: string;
   /** Pseudonymous data subject the record belongs to, used by the erasure flow. */
   subjectId: string;
@@ -305,6 +397,23 @@ export interface RangeVerification {
 }
 
 export type QuarantineBand = 'high' | 'medium' | 'low';
+
+export interface ClassifierBand {
+  band: QuarantineBand;
+  /** Lowest score in the band; the band runs up to the next band's bound. */
+  min: number;
+  routing: string;
+}
+
+/** The scoring classifier that sorts held content into bands (stub). */
+export interface ClassifierConfig {
+  modelVersion: string;
+  /** Scores below this are released without review. */
+  releaseThreshold: number;
+  bands: ClassifierBand[];
+  /** Routing for scores below the release threshold. */
+  belowRelease: string;
+}
 
 export interface QuarantineItem {
   id: string;

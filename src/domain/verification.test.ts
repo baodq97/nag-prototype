@@ -7,7 +7,7 @@ function chain(seqs: number[]): EvidenceRecord[] {
     seq,
     timestamp: '2026-09-30T08:00:00.000Z',
     tenantId: 't',
-    eventType: 'request.allowed',
+    code: 'NAG-D001',
     endpoint: '/x',
     subjectId: 's',
     digest: 'd',
