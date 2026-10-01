@@ -17,7 +17,11 @@ compliance console on top.
   as a stub in the UI and in code.
 - `scripts/ci.sh` is what CI runs. A change that adds code adds its tests and wires them in
   there; CI must stay green.
-- UI text is English.
+- Everything is written in English: UI text, code, docs, commits, pull requests, and every
+  board artifact (intent, spec, spike, plan, review). This overrides any default prose
+  language given elsewhere.
+- Package names in manifests, lockfiles, config and imports are fine; the no-vendor-names
+  rule covers UI text and prose.
 - Use the latest stable release of every language, runtime, framework, library, tool and
   CI action. Look the version up when adding or touching a dependency; do not rely on memory.
 - Commits and pull requests carry no AI attribution lines.
