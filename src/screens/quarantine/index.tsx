@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
+  NOW,
   classifierConfig,
   currentUserId,
   escalationFor,
@@ -8,7 +9,7 @@ import {
   quarantineSummary,
   tenant,
 } from '../../data';
-import { ABOUT_TO_ESCALATE_HOURS } from '../../domain/escalation';
+import { ABOUT_TO_ESCALATE_HOURS, isAboutToEscalate, nextDeadline } from '../../domain/escalation';
 import { bandLine, bandRanges } from '../../domain/classifier';
 import { checkJustification } from '../../domain/justification';
 import type { QuarantineItem } from '../../domain/types';
@@ -22,7 +23,7 @@ import { fmtDateTime } from '../../ui/format';
 import { StubLabel } from '../../ui/Labels';
 import { Page } from '../../ui/Page';
 import { StatusChip } from '../../ui/StatusChip';
-import { fmtBandRange, fmtBelowRange, fmtMinutes, fmtNextAt } from './format';
+import { byNextDeadline, fmtBandRange, fmtBelowRange, fmtMinutes, fmtNextAt } from './format';
 
 const TH = 'px-3 py-2 text-left text-xs font-semibold text-slate-700';
 const TD = 'px-3 py-2 align-top text-sm text-slate-800';
@@ -163,6 +164,26 @@ function EscalationExplanation() {
 
 const levelOf = (item: QuarantineItem) => escalationFor(item).level;
 
+const deadlineOf = (item: QuarantineItem, decidedIds: ReadonlySet<string>) =>
+  nextDeadline(escalationFor(item), decidedIds.has(item.id));
+
+/** The rows the "About to escalate" tile counts: pending items whose next step is close. */
+const isMarked = (item: QuarantineItem, decidedIds: ReadonlySet<string>) =>
+  deadlineOf(item, decidedIds) !== undefined && isAboutToEscalate(escalationFor(item), NOW, tenant);
+
+function AboutToEscalateMark() {
+  return (
+    <span data-testid="about-to-escalate">
+      <StatusChip variant="warning" description="">
+        <span aria-hidden>Escalates soon</span>
+        <span className="sr-only">
+          About to escalate: next level within {ABOUT_TO_ESCALATE_HOURS} business hour
+        </span>
+      </StatusChip>
+    </span>
+  );
+}
+
 function buildColumns(
   open: (item: QuarantineItem) => void,
   decidedIds: ReadonlySet<string>,
@@ -171,6 +192,7 @@ function buildColumns(
     {
       key: 'id',
       header: 'ID',
+      id: true,
       sortValue: (r) => r.id,
       render: (r) => (
         <button
@@ -180,7 +202,7 @@ function buildColumns(
             open(r);
           }}
           aria-label={`Open ${r.id}`}
-          className="inline-block font-mono text-sm leading-5 font-medium whitespace-nowrap text-accent-700 underline-offset-2 hover:underline"
+          className="inline-block font-mono text-sm leading-5 font-medium text-accent-700 underline-offset-2 hover:underline"
         >
           {r.id}
         </button>
@@ -208,6 +230,7 @@ function buildColumns(
         <div className="flex flex-col items-start gap-1">
           <StatusChip status={levelOf(r)} />
           <EscalationInfo item={r} compact />
+          {isMarked(r, decidedIds) && <AboutToEscalateMark />}
         </div>
       ),
     },
@@ -340,6 +363,11 @@ export default function QuarantineScreen() {
   const decisions = useSession((s) => s.quarantineDecisions);
   const decidedIds = new Set(Object.keys(decisions));
   const summary = quarantineSummary(decidedIds);
+  // Nearest deadline first; no sort is set on the table, so a column header overrides this order.
+  const rows = useMemo(
+    () => byNextDeadline(quarantine, (q) => deadlineOf(q, new Set(Object.keys(decisions)))),
+    [decisions],
+  );
 
   return (
     <Page title="Quarantine queue" demo>
@@ -358,7 +386,7 @@ export default function QuarantineScreen() {
       </p>
       <DataTable
         label="quarantine items"
-        rows={quarantine}
+        rows={rows}
         columns={buildColumns((r) => setSelectedId(r.id), decidedIds)}
         facets={facets}
         rowKey={(r) => r.id}

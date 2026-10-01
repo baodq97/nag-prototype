@@ -50,18 +50,18 @@ const figures: {
     hint: 'Failing, past the due date',
   },
   {
-    tile: 'needs-remediation',
-    label: 'Needs remediation',
-    value: strip.needsRemediation,
-    tone: tone(strip.needsRemediation, 'warning'),
-    hint: 'Failing, due in more than 14 days',
-  },
-  {
     tile: 'due-soon',
     label: 'Due soon',
     value: strip.dueSoon,
     tone: tone(strip.dueSoon, 'warning'),
     hint: 'Failing, due within 14 days',
+  },
+  {
+    tile: 'needs-remediation',
+    label: 'Due later',
+    value: strip.needsRemediation,
+    tone: tone(strip.needsRemediation, 'warning'),
+    hint: 'Failing, due in more than 14 days',
   },
 ];
 

@@ -31,6 +31,13 @@ const facets: Facet<Integration>[] = [
 const searchText = (i: Integration) =>
   `${i.name} ${INTEGRATION_KIND_LABEL[i.kind]} ${i.capabilities.join(' ')} ${i.status}`;
 
+/** The category under a name, in both tabs; nothing when it would only repeat the name. */
+function CategoryLine({ integration: i }: { integration: Integration }) {
+  const label = INTEGRATION_KIND_LABEL[i.kind];
+  if (!label || label.toLowerCase() === i.name.toLowerCase()) return null;
+  return <p className="text-xs text-slate-600">{label}</p>;
+}
+
 const columns = (configure: (i: Integration) => void): Column<Integration>[] => [
   {
     key: 'name',
@@ -41,7 +48,7 @@ const columns = (configure: (i: Integration) => void): Column<Integration>[] => 
         <IconTile kind={i.kind} />
         <div className="min-w-0">
           <p className="font-medium text-slate-900">{i.name}</p>
-          <p className="text-xs text-slate-600">{INTEGRATION_KIND_LABEL[i.kind]}</p>
+          <CategoryLine integration={i} />
         </div>
       </div>
     ),
@@ -143,9 +150,7 @@ function AvailableGrid({
             <IconTile kind={i.kind} />
             <div className="min-w-0">
               <h2 className="font-medium text-slate-900">{i.name}</h2>
-              {INTEGRATION_KIND_LABEL[i.kind].toLowerCase() !== i.name.toLowerCase() && (
-                <p className="text-xs text-slate-600">{INTEGRATION_KIND_LABEL[i.kind]}</p>
-              )}
+              <CategoryLine integration={i} />
             </div>
           </div>
           <CapabilityTags name={i.name} capabilities={i.capabilities} />

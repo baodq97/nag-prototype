@@ -3,6 +3,7 @@
 
 import { expect, test } from '@playwright/test';
 import { getIntegration, integrations, tenant, unlocksFor } from '../src/data';
+import { INTEGRATION_KIND_LABEL } from '../src/domain/integrations';
 import { formatDateTime } from '../src/domain/time';
 import { integrationTabCounts } from '../src/domain/summaries';
 import { collectErrors, expectNoSeriousA11y } from './helpers';
@@ -357,6 +358,84 @@ test('the inspector detail page keeps its sessions and the label "MCP inspector"
   );
   const text = await page.locator('body').evaluate((el) => el.textContent ?? '');
   expect(text).not.toContain('Mcp');
+  expect(errors).toEqual([]);
+});
+
+test('Connected rows never repeat the name as a subtitle and show the category otherwise', async ({
+  page,
+}) => {
+  const errors = collectErrors(page);
+  await page.goto('/integrations');
+  const rows = page.locator('tbody tr');
+  await expect(rows).toHaveCount(counts.connected);
+
+  let withCategory = 0;
+  let withoutSubtitle = 0;
+  for (const row of await rows.all()) {
+    const cell = row.locator('td').first();
+    const name = (await cell.locator('p').first().innerText()).trim();
+    const subtitles = cell.locator('p.text-xs');
+    const source = integrations.find((i) => i.name === name)!;
+    expect(source, name).toBeDefined();
+    const category = INTEGRATION_KIND_LABEL[source.kind];
+
+    if (category.toLowerCase() === name.toLowerCase()) {
+      await expect(subtitles, name).toHaveCount(0);
+      withoutSubtitle += 1;
+    } else {
+      await expect(subtitles, name).toHaveCount(1);
+      await expect(subtitles, name).toHaveText(category);
+      expect((await subtitles.innerText()).trim().toLowerCase(), name).not.toBe(name.toLowerCase());
+      withCategory += 1;
+    }
+  }
+  // The seed has both kinds of row, so neither branch is vacuous.
+  expect(withCategory).toBeGreaterThan(0);
+  expect(withoutSubtitle).toBeGreaterThan(0);
+
+  // The inspector is the row whose category would repeat its name.
+  const inspector = rows.filter({ hasText: 'MCP inspector' }).first();
+  await expect(inspector.locator('td').first().locator('p')).toHaveCount(1);
+  expect(errors).toEqual([]);
+});
+
+test('MCP session IDs render on one line at 1280x800', async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.goto('/integrations/int-mcp');
+  const table = page
+    .getByRole('table')
+    .filter({ has: page.getByRole('columnheader', { name: 'Session', exact: true }) });
+  await expect(table.getByRole('button', { name: 'MCP-S-301' })).toBeVisible();
+
+  const cells = await table.locator('tbody tr td:first-child').evaluateAll((tds) =>
+    tds.map((td) => {
+      const button = td.querySelector('button')!;
+      const lineHeight = parseFloat(getComputedStyle(button).lineHeight);
+      return {
+        text: button.textContent,
+        height: button.getBoundingClientRect().height,
+        lineHeight,
+      };
+    }),
+  );
+  expect(cells.length).toBeGreaterThan(0);
+  for (const c of cells) {
+    expect(Number.isFinite(c.lineHeight), c.text ?? '').toBe(true);
+    expect(c.height, c.text ?? '').toBeLessThanOrEqual(c.lineHeight * 1.5);
+  }
+
+  // The open drawer keeps its tool-call codes on one line too.
+  await table.getByRole('button', { name: 'MCP-S-301' }).click();
+  const calls = page.getByRole('table', { name: 'Tool calls of MCP-S-301' });
+  await expect(calls).toBeVisible();
+  const codes = await calls.locator('tbody td:nth-child(2) span').evaluateAll((els) =>
+    els.map((el) => ({
+      height: el.getBoundingClientRect().height,
+      lineHeight: parseFloat(getComputedStyle(el).lineHeight),
+    })),
+  );
+  expect(codes.length).toBeGreaterThan(0);
+  for (const c of codes) expect(c.height).toBeLessThanOrEqual(c.lineHeight * 1.5);
   expect(errors).toEqual([]);
 });
 

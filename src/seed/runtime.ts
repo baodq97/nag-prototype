@@ -254,22 +254,42 @@ function node(
     label,
     outcome,
     startedAt: new Date(Date.parse(NOW) - 3_600_000 + offsetMs).toISOString(),
-    durationMs: 120 + Math.floor(random() * 900),
+    // A rejected call never ran, so it has no duration.
+    ...(kind === 'rejected' ? {} : { durationMs: 120 + Math.floor(random() * 900) }),
   };
 }
 
+// A chain of agents, one per depth. Model calls are leaves: three of the agents each make one.
 function chain(traceId: string, length: number, prefix: string): LineageNode[] {
-  return Array.from({ length }, (_, i) =>
-    node(
-      traceId,
-      `${prefix}-${i + 1}`,
-      i === 0 ? null : `${prefix}-${i}`,
-      i === 0 ? 'agent' : i % 3 === 0 ? 'llm' : 'agent',
-      i === 0 ? 'planner' : `delegate-${i + 1}`,
-      'success',
-      i * 400,
-    ),
-  );
+  const nodes: LineageNode[] = [];
+  for (let i = 0; i < length; i++) {
+    const agentId = `${prefix}-${i + 1}`;
+    nodes.push(
+      node(
+        traceId,
+        agentId,
+        i === 0 ? null : `${prefix}-${i}`,
+        'agent',
+        i === 0 ? 'planner' : `delegate-${i + 1}`,
+        'success',
+        i * 400,
+      ),
+    );
+    if (i % 3 === 2) {
+      nodes.push(
+        node(
+          traceId,
+          `${prefix}-m${i + 1}`,
+          agentId,
+          'llm',
+          `model call ${i + 1}`,
+          'success',
+          i * 400 + 200,
+        ),
+      );
+    }
+  }
+  return nodes;
 }
 
 export const lineage: LineageNode[] = [

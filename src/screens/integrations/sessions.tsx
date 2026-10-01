@@ -2,7 +2,7 @@ import { type McpSessionView, mcpSessions } from '../../data';
 import { getCode } from '../../domain/codes';
 import type { McpSessionState } from '../../domain/types';
 import { Card } from '../../ui/Card';
-import { type Column, DataTable } from '../../ui/DataTable';
+import { type Column, DataTable, ID_CELL } from '../../ui/DataTable';
 import { Drawer } from '../../ui/Drawer';
 import { fmtDateTime } from '../../ui/format';
 import { StatusChip } from '../../ui/StatusChip';
@@ -20,6 +20,7 @@ const sessionColumns = (open: (id: string) => void): Column<McpSessionView>[] =>
   {
     key: 'id',
     header: 'Session',
+    id: true,
     sortValue: (s) => s.id,
     render: (s) => (
       <button
@@ -114,7 +115,9 @@ export function McpSessions() {
                       <td className="px-3 py-2 align-top font-mono text-xs">{c.tool}</td>
                       <td className="px-3 py-2 align-top">
                         {getCode(c.code).label}{' '}
-                        <span className="font-mono text-xs text-slate-600">{c.code}</span>
+                        <span className={`${ID_CELL} font-mono text-xs text-slate-600`}>
+                          {c.code}
+                        </span>
                       </td>
                       <td className="px-3 py-2 align-top">
                         <StatusChip status={c.outcome} />

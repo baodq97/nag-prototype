@@ -1,7 +1,10 @@
 // Quarantine screen at 1280x800: summary and first row above the fold, one description line,
-// "How it works" closed by default, a per-row Decide button and one-line ID cells.
+// "How it works" closed by default, a per-row Decide button, one-line ID cells, the default
+// order by next deadline and the marker on rows the "About to escalate" tile counts.
 
-import { expect, test } from '@playwright/test';
+import { type Page, expect, test } from '@playwright/test';
+import { escalationFor, quarantine, quarantineSummary } from '../src/data';
+import { nextDeadline } from '../src/domain/escalation';
 import { collectErrors } from './helpers';
 
 test.use({ viewport: { width: 1280, height: 800 } });
@@ -53,6 +56,77 @@ test('every ID cell renders on one line', async ({ page }) => {
     }));
     expect(Math.abs(height - lineHeight)).toBeLessThan(1);
   }
+});
+
+const rowIds = (page: Page) =>
+  page
+    .getByRole('button', { name: /^Open Q-/ })
+    .evaluateAll((els) => els.map((el) => el.getAttribute('aria-label')!.replace('Open ', '')));
+
+test('the default order follows the nearest deadline, items without one last', async ({ page }) => {
+  const withDeadline = quarantine
+    .map((q) => ({ id: q.id, at: nextDeadline(escalationFor(q)) }))
+    .filter((q) => q.at !== undefined)
+    .sort((a, b) => Date.parse(a.at!) - Date.parse(b.at!));
+  const without = quarantine
+    .filter((q) => nextDeadline(escalationFor(q)) === undefined)
+    .map((q) => q.id);
+  expect(withDeadline.length).toBeGreaterThan(1);
+  expect(without.length).toBeGreaterThan(0);
+
+  await page.goto('/quarantine');
+  await expect(page.getByRole('button', { name: /^Open Q-/ }).first()).toBeVisible();
+  const shown = await rowIds(page);
+  expect(shown).toEqual([...withDeadline.map((q) => q.id), ...without]);
+
+  // The soonest item is on top, and the rows with no deadline close the table.
+  const first = page.getByRole('row').nth(1);
+  await expect(first).toContainText(withDeadline[0]!.id);
+  for (const id of without) {
+    await expect(page.getByRole('row', { name: new RegExp(id) })).toContainText(/by policy/);
+  }
+
+  // A column header overrides the default: by ID, ascending.
+  await page.getByRole('button', { name: 'ID', exact: true }).click();
+  expect(await rowIds(page)).toEqual(quarantine.map((q) => q.id).sort());
+});
+
+test('the marked rows are the ones the tile counts, also after a decision', async ({ page }) => {
+  await page.goto('/quarantine');
+  const tile = page
+    .getByText('About to escalate', { exact: true })
+    .locator('xpath=following-sibling::p[1]');
+  const marks = page.getByTestId('about-to-escalate');
+  const expected = quarantineSummary().aboutToEscalate;
+  expect(expected).toBeGreaterThan(0);
+
+  await expect(tile).toHaveText(String(expected));
+  await expect(marks).toHaveCount(expected);
+  for (const mark of await marks.all()) {
+    await expect(mark).toBeVisible();
+    await expect(mark).toContainText('Escalates soon');
+    await expect(mark).toContainText('About to escalate: next level within 1 business hour');
+  }
+
+  // Decide the first marked item: its mark goes away and the tile follows.
+  const marked = page.getByRole('row').filter({ has: marks });
+  const id = (await marked
+    .first()
+    .getByRole('button', { name: /^Open Q-/ })
+    .textContent())!;
+  await marked
+    .first()
+    .getByRole('button', { name: `Decide ${id}` })
+    .click();
+  const drawer = page.getByRole('dialog', { name: `Quarantine item ${id}` });
+  await drawer.getByLabel('Justification').fill('Reviewed the answer, no personal data present.');
+  await drawer.getByRole('button', { name: 'Approve' }).click();
+  await expect(drawer.getByTestId('decision')).toBeVisible();
+  await drawer.getByRole('button', { name: 'Close' }).click();
+
+  await expect(tile).toHaveText(String(expected - 1));
+  await expect(marks).toHaveCount(expected - 1);
+  await expect(page.getByRole('row', { name: new RegExp(id) })).not.toContainText('Escalates soon');
 });
 
 test('the Decide button opens the drawer', async ({ page }) => {

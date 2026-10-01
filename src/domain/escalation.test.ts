@@ -5,6 +5,7 @@ import {
   businessMinutesBetween,
   escalationOf,
   isAboutToEscalate,
+  nextDeadline,
 } from './escalation';
 import type { Tenant } from './types';
 
@@ -91,6 +92,31 @@ describe('escalationOf', () => {
     const e = escalationOf(FRIDAY_1600, '2026-04-06T10:00:00.000Z', tenant);
     expect(e.level).toBe('expired');
     expect(e.nextAt).toBeUndefined();
+  });
+});
+
+describe('nextDeadline', () => {
+  it('is the next escalation step while the item is with a reviewer', () => {
+    expect(nextDeadline(escalationOf(FRIDAY_1600, MONDAY_0930, tenant))).toBe(MONDAY_1200);
+  });
+
+  it('is the expiry once the item is with the manager', () => {
+    const e = escalationOf(FRIDAY_1600, TUESDAY_1200, tenant);
+    expect(e.level).toBe('manager');
+    // The tenant expiry is 24 business hours after receipt.
+    expect(nextDeadline(e)).toBe(addBusinessMinutes(FRIDAY_1600, 24 * 60, tenant));
+    expect(Date.parse(nextDeadline(e)!)).toBeGreaterThan(Date.parse(TUESDAY_1200));
+  });
+
+  it('is none for an expired item', () => {
+    const e = escalationOf(FRIDAY_1600, '2026-04-06T10:00:00.000Z', tenant);
+    expect(nextDeadline(e)).toBeUndefined();
+  });
+
+  it('is none for an item decided in the session', () => {
+    const e = escalationOf(FRIDAY_1600, MONDAY_0930, tenant);
+    expect(nextDeadline(e, true)).toBeUndefined();
+    expect(nextDeadline(e, false)).toBe(MONDAY_1200);
   });
 });
 

@@ -2,7 +2,7 @@ import { latencyProfiles, policyBundles } from '../../data';
 import { bundleLoad, fitsProfile } from '../../domain/bundles';
 import type { LatencyProfile, PolicyBundle } from '../../domain/types';
 import { Card } from '../../ui/Card';
-import { DataTable, type Column, type Facet } from '../../ui/DataTable';
+import { DataTable, ID_CELL, type Column, type Facet } from '../../ui/DataTable';
 import { Page } from '../../ui/Page';
 import { StatusChip } from '../../ui/StatusChip';
 
@@ -24,7 +24,7 @@ const columns: Column<PolicyBundle>[] = [
       <div>
         <p className="font-medium text-slate-900">{b.name}</p>
         <p className="text-xs text-slate-600">
-          {b.id} · v{b.version}
+          <span className={ID_CELL}>{b.id}</span> · v{b.version}
         </p>
       </div>
     ),
@@ -84,13 +84,13 @@ const facets: Facet<PolicyBundle>[] = [
 
 export default function PolicyBundlesScreen() {
   return (
-    <Page
-      title="Policy bundles"
-      demo
-      description="Each bundle declares a class and a latency budget. A bundle without both is rejected when it is loaded."
-    >
+    <Page title="Policy bundles" demo>
       <Card>
         <p className="text-sm text-slate-700">
+          Each bundle declares a class and a latency budget. A bundle without both is rejected when
+          it is loaded.
+        </p>
+        <p className="mt-2 text-sm text-slate-700">
           Budgets are configured values, not measured latency. No runtime is connected, so the fit
           columns compare each bundle&apos;s configured budget with the total budget of a profile:{' '}
           {latencyProfiles.map((p) => `${p.name} ${p.budgetMs} ms`).join(', ')}.

@@ -30,7 +30,8 @@ const MODES: { value: FallbackMode; label: string; summary: string }[] = [
 const MODE_LABEL: Record<FallbackMode, string> = { 'hard-stop': 'Hard stop', bypass: 'Bypass' };
 
 const TH = 'px-3 py-2 text-left text-xs font-semibold text-slate-700';
-const TD = 'px-3 py-2 align-top text-sm text-slate-800';
+// Row headers are th cells, which browsers centre unless told otherwise.
+const TD = 'px-3 py-2 text-left align-top text-sm text-slate-800';
 
 function Latency({ ms, over }: { ms: number; over: boolean }) {
   return (
@@ -351,11 +352,7 @@ function Egress() {
 
 export default function RuntimeHealthScreen() {
   return (
-    <Page
-      title="Runtime health"
-      demo
-      description="Latency budgets, breach counters, what a failed check does to a request, and what your application does when NAG is unreachable."
-    >
+    <Page title="Runtime health" demo>
       <StageTables />
       <BlastRadius />
       <Breaker />

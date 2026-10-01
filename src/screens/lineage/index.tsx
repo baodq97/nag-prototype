@@ -7,11 +7,8 @@ import { SelectField } from '../../ui/Field';
 import { Page } from '../../ui/Page';
 import { StatusChip } from '../../ui/StatusChip';
 
-const BOX_W = 200;
-const BOX_H = 40;
-const COL_GAP = 240;
-const ROW_GAP = 52;
-const PAD = 12;
+/** Width of one level of indent, in px; it holds the connector lines. */
+const INDENT = 24;
 
 const OUTCOME_STYLE: Record<LineageOutcome, { fill: string; stroke: string; label: string }> = {
   success: { fill: '#ecfdf5', stroke: '#047857', label: 'Success' },
@@ -27,78 +24,78 @@ const KIND_LABEL: Record<LineageKind, string> = {
   rejected: 'Rejected call',
 };
 
-const clip = (text: string, max = 27) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
+const LINE = 'absolute bg-slate-400';
+
+/** One cell of the left gutter: a vertical line, and on the last cell an elbow into the node. */
+function Guide({ elbow, vertical }: { elbow: boolean; vertical: 'none' | 'half' | 'full' }) {
+  return (
+    <span aria-hidden className="relative self-stretch" style={{ width: INDENT }}>
+      {vertical !== 'none' && (
+        <span
+          className={`${LINE} top-0 w-px ${vertical === 'full' ? 'bottom-0' : 'bottom-1/2'}`}
+          style={{ left: INDENT / 2 }}
+        />
+      )}
+      {elbow && <span className={`${LINE} right-0 top-1/2 h-px`} style={{ left: INDENT / 2 }} />}
+    </span>
+  );
+}
 
 function Graph({ traceId }: { traceId: string }) {
   const layout = layoutTrace(traceNodes(traceId));
-  const pos = new Map(
-    layout.nodes.map((p) => [
-      p.node.id,
-      { x: PAD + (p.depth - 1) * COL_GAP, y: PAD + p.row * ROW_GAP },
-    ]),
-  );
-  const width = PAD * 2 + (layout.maxDepth - 1) * COL_GAP + BOX_W;
-  const height = PAD * 2 + (layout.nodes.length - 1) * ROW_GAP + BOX_H;
+  // Whether each ancestor-or-self at a depth has a later sibling: decides which lines continue.
+  const hasLater: boolean[] = [];
+  const rows = layout.nodes.map(({ node, depth }, i) => {
+    const next = layout.nodes.slice(i + 1).find((p) => p.depth <= depth);
+    const later =
+      next !== undefined && next.depth === depth && next.node.parentId === node.parentId;
+    hasLater[depth] = later;
+    return { node, depth, later, gutter: hasLater.slice(2, depth + 1) };
+  });
 
   return (
     <div
       role="region"
-      aria-label="Call graph, scrolls sideways"
-      tabIndex={0}
-      className="overflow-x-auto rounded-md border border-slate-200 bg-white"
+      aria-label="Call graph, one row per call, indented by depth"
+      data-testid="call-graph"
+      className="rounded-md border border-slate-200 bg-white p-2"
     >
-      <svg
-        width={width}
-        height={height}
-        viewBox={`0 0 ${width} ${height}`}
-        role="img"
-        aria-label={`Call graph with ${layout.nodes.length} calls and a depth of ${layout.maxDepth}. The table below lists the same calls.`}
+      <ol
+        aria-label={`${layout.nodes.length} calls, depth up to ${layout.maxDepth}. The table below lists the same calls.`}
       >
-        {layout.edges.map((e) => {
-          const a = pos.get(e.from);
-          const b = pos.get(e.to);
-          if (!a || !b) return null;
-          const x1 = a.x + BOX_W;
-          const y1 = a.y + BOX_H / 2;
-          const x2 = b.x;
-          const y2 = b.y + BOX_H / 2;
-          const mid = x1 + (x2 - x1) / 2;
-          return (
-            <path
-              key={`${e.from}-${e.to}`}
-              d={`M${x1} ${y1} H${mid} V${y2} H${x2}`}
-              fill="none"
-              stroke="#94a3b8"
-              strokeWidth={1.5}
-            />
-          );
-        })}
-        {layout.nodes.map(({ node }) => {
-          const p = pos.get(node.id);
-          if (!p) return null;
+        {rows.map(({ node, depth, later, gutter }) => {
           const style = OUTCOME_STYLE[node.outcome];
           return (
-            <g key={node.id} transform={`translate(${p.x} ${p.y})`}>
-              <title>{`${node.label} – ${KIND_LABEL[node.kind]}, ${style.label.toLowerCase()}`}</title>
-              <rect
-                width={BOX_W}
-                height={BOX_H}
-                rx={6}
-                fill={style.fill}
-                stroke={style.stroke}
-                strokeWidth={1.5}
-                strokeDasharray={node.kind === 'rejected' ? '5 3' : undefined}
-              />
-              <text x={8} y={16} fontSize={12} fontWeight={600} fill="#0f172a">
-                {clip(node.label)}
-              </text>
-              <text x={8} y={32} fontSize={12} fill="#334155">
-                {KIND_LABEL[node.kind]} · {style.label}
-              </text>
-            </g>
+            <li key={node.id} className="flex items-stretch py-0.5" data-depth={depth}>
+              {gutter.map((continues, g) => {
+                const own = g === gutter.length - 1;
+                const vertical = own ? (later ? 'full' : 'half') : continues ? 'full' : 'none';
+                return <Guide key={g} elbow={own} vertical={vertical} />;
+              })}
+              <div
+                data-testid="call-node"
+                className="min-w-0 rounded-md border-[1.5px] px-2 py-1"
+                style={{
+                  background: style.fill,
+                  borderColor: style.stroke,
+                  borderStyle: node.kind === 'rejected' ? 'dashed' : 'solid',
+                }}
+              >
+                <div
+                  data-testid="call-label"
+                  className="break-words text-[12px] font-semibold leading-4 text-slate-900"
+                >
+                  {node.label}
+                </div>
+                <div className="text-[12px] leading-4 text-slate-700">
+                  <span className="sr-only">Depth {depth}. </span>
+                  {KIND_LABEL[node.kind]} · {style.label}
+                </div>
+              </div>
+            </li>
           );
         })}
-      </svg>
+      </ol>
     </div>
   );
 }
@@ -148,11 +145,7 @@ export default function LineageScreen() {
   );
 
   return (
-    <Page
-      title="Lineage"
-      demo
-      description="The call graph of one agent trace: who called whom, and how each call ended. Depth gives the column and a parent link gives each edge."
-    >
+    <Page title="Lineage" demo>
       <Card>
         <div className="flex flex-wrap items-end gap-4">
           <div className="w-fit max-w-full">
@@ -175,6 +168,10 @@ export default function LineageScreen() {
       </Card>
       <Card title="Call graph">
         <div className="flex flex-col gap-3">
+          <p className="text-sm text-slate-700">
+            One row per call, in call order. A call is indented one step for each level of depth,
+            and a line joins it to the call that made it.
+          </p>
           <Legend />
           <Graph key={traceId} traceId={traceId} />
         </div>
@@ -204,7 +201,9 @@ export default function LineageScreen() {
                   <td className="px-2 py-1.5">
                     <StatusChip status={node.outcome} />
                   </td>
-                  <td className="px-2 py-1.5 tabular-nums">{node.durationMs} ms</td>
+                  <td className="px-2 py-1.5 tabular-nums">
+                    {node.durationMs === undefined ? 'Not run' : `${node.durationMs} ms`}
+                  </td>
                 </tr>
               ))}
             </tbody>

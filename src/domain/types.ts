@@ -505,7 +505,8 @@ export interface LineageNode {
   label: string;
   outcome: LineageOutcome;
   startedAt: string;
-  durationMs: number;
+  /** Absent for a rejected call: it never ran. */
+  durationMs?: number;
 }
 
 export interface LineageTrace {

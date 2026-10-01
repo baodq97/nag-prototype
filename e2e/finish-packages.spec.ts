@@ -2,7 +2,7 @@
 // under the heading, neutral and distinct source chips, and missing items link to where they live.
 
 import { expect, test } from '@playwright/test';
-import { packageElements, packageReadiness } from '../src/data';
+import { packageElements, packageReadiness, packageSections } from '../src/data';
 import { collectErrors } from './helpers';
 
 test.use({ viewport: { width: 1280, height: 800 } });
@@ -67,6 +67,69 @@ test('readiness line, header and chips on Conformity packages', async ({ page },
   await expect(page.locator('[data-source][data-chip]')).toHaveCount(0);
 
   expect(errors).toEqual([]);
+});
+
+test('checklist item names take at most 2 lines, chips sit under the name', async ({ page }) => {
+  await page.goto('/packages');
+  const names = page.locator(
+    '[aria-label="Package checklist"] :is([data-testid="checklist-name"], [data-testid="missing-item"])',
+  );
+  const count = packageElements().reduce((n, g) => n + g.elements.length, 0);
+  await expect(names).toHaveCount(count);
+  for (let i = 0; i < count; i++) {
+    const m = await names.nth(i).evaluate((el) => {
+      const li = el.closest('li')!;
+      const chip = li.querySelector('[data-source]')!;
+      // An inline element's own box spans its lines, so measure the rendered line boxes.
+      const rects = Array.from(el.getClientRects());
+      const lines = new Set(rects.map((r) => Math.round(r.top))).size;
+      return {
+        lines,
+        text: el.textContent,
+        nameBottom: Math.max(...rects.map((r) => r.bottom)),
+        chipTop: chip.getBoundingClientRect().top,
+        nameWidth: el.getBoundingClientRect().width,
+        liWidth: li.getBoundingClientRect().width,
+      };
+    });
+    expect(m.lines, m.text ?? '').toBeLessThanOrEqual(2);
+    expect(m.chipTop, m.text ?? '').toBeGreaterThanOrEqual(m.nameBottom - 1);
+  }
+});
+
+test('sections are numbered S-01..S-N without gaps on each route and the export agrees', async ({
+  page,
+}) => {
+  await page.goto('/packages');
+  const counts: Record<string, number> = {};
+  for (const route of [/Self-assessment/, /Notified body/]) {
+    await page.getByRole('radio', { name: route }).check();
+    const list = page.getByRole('region', { name: 'Sections' });
+    const onScreen = (await list.getByTestId('section-number').allTextContents()).map((t) =>
+      t.trim(),
+    );
+    expect(onScreen.length).toBeGreaterThan(0);
+    expect(onScreen).toEqual(onScreen.map((_, i) => `S-${String(i + 1).padStart(2, '0')}`));
+    counts[String(route)] = onScreen.length;
+    const titles = (await list.locator('li > div > p:first-child').allTextContents()).map((t) =>
+      t.trim(),
+    );
+
+    await page.getByRole('button', { name: 'Export' }).click();
+    const modal = page.getByRole('dialog');
+    const exported = (await modal.getByTestId('export-section').allTextContents()).map((t) =>
+      t.trim(),
+    );
+    expect(exported).toEqual(titles);
+    await page.keyboard.press('Escape');
+    await expect(modal).toBeHidden();
+  }
+  expect(counts).toEqual({
+    [String(/Self-assessment/)]: packageSections.filter((s) => s.routes.includes('self-assessment'))
+      .length,
+    [String(/Notified body/)]: packageSections.filter((s) => s.routes.includes('notified-body'))
+      .length,
+  });
 });
 
 test('each missing item links to a page that shows it', async ({ page }) => {

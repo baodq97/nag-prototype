@@ -12,6 +12,7 @@ import { erasureSummary, rangeText } from '../../domain/erasure';
 import { type ErasureRun, sessionNow, updateSession, useSession } from '../../session/store';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
+import { ID_CELL } from '../../ui/DataTable';
 import { TextField, Toggle } from '../../ui/Field';
 import { fmtDate, fmtDateTime } from '../../ui/format';
 import { StubLabel } from '../../ui/Labels';
@@ -258,12 +259,14 @@ function ErasureRequests() {
             {requests.map((r) => (
               <tr key={r.id}>
                 <td className="px-3 py-2 align-top">
-                  <span className="font-mono text-xs">{r.id}</span>
+                  <span className={`font-mono text-xs ${ID_CELL}`}>{r.id}</span>
                   {r.fromSession && (
                     <span className="block text-xs text-slate-600">Started in this session</span>
                   )}
                 </td>
-                <td className="px-3 py-2 align-top font-mono text-xs">{r.subjectId}</td>
+                <td className={`px-3 py-2 align-top font-mono text-xs ${ID_CELL}`}>
+                  {r.subjectId}
+                </td>
                 <td className="px-3 py-2 align-top">
                   <time dateTime={r.receivedAt}>{fmtDateTime(r.receivedAt)}</time>
                 </td>
@@ -341,11 +344,7 @@ function Attestations() {
 
 export default function PrivacyScreen() {
   return (
-    <Page
-      title="Privacy and erasure"
-      demo
-      description="What the evidence log keeps by default, where content logging is switched on, and how content is made unreadable on request."
-    >
+    <Page title="Privacy and erasure" demo>
       <ContentLogging />
       <ErasureFlow />
       <ErasureRequests />

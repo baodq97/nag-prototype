@@ -259,10 +259,7 @@ export default function Screen() {
   ];
 
   return (
-    <Page
-      title="AI systems"
-      description="This is orientation to support compliance readiness, not legal advice. Risk tiers are replayed from recorded answers."
-    >
+    <Page title="AI systems">
       <DataTable
         label="AI systems"
         rows={systems}
@@ -272,6 +269,10 @@ export default function Screen() {
         searchText={(s) => `${s.name} ${s.endpoint ?? ''} ${s.description}`}
         onRowClick={(s) => setOpen(s.id)}
       />
+      <p className="text-xs text-slate-600">
+        This is orientation to support compliance readiness, not legal advice. Risk tiers are
+        replayed from recorded answers.
+      </p>
       <Drawer open={Boolean(open)} title={open?.name ?? ''} onClose={() => setOpen(null)}>
         {open && <SystemDrawerBody system={open} />}
       </Drawer>
