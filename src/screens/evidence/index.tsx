@@ -216,7 +216,7 @@ function VerificationResults({
                   {r.ok ? (
                     <StatusChip status="verified">Verified</StatusChip>
                   ) : (
-                    <StatusChip variant="danger">Gap found</StatusChip>
+                    <StatusChip status="gap" />
                   )}
                 </td>
                 {r.layers.map((l) => (
@@ -358,13 +358,7 @@ function IntegrityCard({
   return (
     <Card title="Last integrity check" className={gap ? 'border-red-200' : ''}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        {gap ? (
-          <StatusChip status="verified" variant="danger">
-            Gap found
-          </StatusChip>
-        ) : (
-          <StatusChip status="verified">Verified</StatusChip>
-        )}
+        {gap ? <StatusChip status="gap" /> : <StatusChip status="verified">Verified</StatusChip>}
         {gap ? (
           <Link
             to={{ search: searchFor(gap) }}

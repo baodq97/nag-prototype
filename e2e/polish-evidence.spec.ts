@@ -268,6 +268,14 @@ test('on load the last check shows as one line with a link to the range and when
   await expect(page.getByTestId('range-101')).toHaveCount(0);
   await expect(page.getByText(`Ran ${fmtDateTime(lastVerification.at)}`)).toBeVisible();
 
+  // The gap chip is red and its tooltip describes the gap, not a verified range.
+  const chip = page.locator('[data-chip]', { hasText: 'Gap found' });
+  await expect(chip).toHaveAttribute('data-chip', 'danger');
+  await chip.hover();
+  await expect(page.getByRole('tooltip').filter({ visible: true })).toHaveText(
+    /integrity layer fails for this range/,
+  );
+
   // With the newest record first, 101–150 starts on page 2.
   await line.click();
   await expectPage(page, 2);
@@ -307,6 +315,13 @@ test('Verify re-runs the check and the line stays the same', async ({ page }) =>
   await expect(page.getByTestId('range-101')).toBeVisible();
   await expect(page.getByTestId('verification-line')).toHaveText(
     '4 of 5 ranges verify; gap at seq 137 in 101–150',
+  );
+  const rangeChip = page.getByTestId('range-101').locator('[data-chip]');
+  await expect(rangeChip).toHaveText('Gap found');
+  await expect(rangeChip).toHaveAttribute('data-chip', 'danger');
+  await rangeChip.hover();
+  await expect(page.getByRole('tooltip').filter({ visible: true })).toHaveText(
+    /integrity layer fails for this range/,
   );
   await expect(page.getByText(/^Re-run /)).toBeVisible();
 });

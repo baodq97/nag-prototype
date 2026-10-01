@@ -68,6 +68,12 @@ const REGISTRY: Record<string, Entry> = {
   partial: ['warning', 'Only part of the duty is covered.'],
   customer: ['info', 'The customer carries this duty.'],
   verified: ['success', 'All three integrity layers check out for this range.'],
+  gap: [
+    'danger',
+    'At least one integrity layer fails for this range: records may be missing or changed.',
+    CircleX,
+    'Gap found',
+  ],
   loaded: ['success', 'The bundle is loaded and applies to traffic.'],
   rejected: ['danger', 'The item was refused and does not apply.', Ban],
   primary: ['info', 'The first reviewer in the escalation chain holds the item.', CircleDot],
