@@ -19,10 +19,12 @@ overstating anything.
    model.
 4. `/policies` shows the renewal state. Point at "Expired" on the AI policy: its renewal date has
    passed even though it is approved.
-5. `/trust` is the public page. Four claims read "Under remediation": human review of uncertain
-   output, prompt-injection screening, tamper-evident records with three integrity layers, and
-   the AI policy approved by leadership. Explain that each status is derived from tests,
-   document and policy state and evidence verification, not typed in by hand.
+5. `/trust` is the public page. Six claims read "Under remediation": human review of uncertain
+   output, prompt-injection screening, the MCP server allow-list, tamper-evident records with
+   three integrity layers, independent timestamp anchoring, and the AI policy approved by
+   leadership. Explain that each status is derived from tests, document and policy state and
+   evidence verification, not typed in by hand, and that a failing check outranks "In
+   progress" for work that is still planned.
 6. `/evidence` is where the evidence claim breaks. Run Verify and point at the range 101–150,
    where the hash chain reports a gap detected at seq 137, while the other ranges verify.
 7. `/auditor/AUD-2026-01` is the audit tracker for the ISO/IEC 42001 surveillance audit. Point at

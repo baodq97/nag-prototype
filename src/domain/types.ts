@@ -348,7 +348,7 @@ export type TrustStatus = 'in-place' | 'under-remediation' | 'in-progress';
 export interface TrustEntry {
   name: string;
   refs: TrustRef[];
-  /** Not built yet: shows "In progress" whatever its references say. */
+  /** Not built yet: shows "In progress" while its references hold; a failing one still wins. */
   planned?: boolean;
 }
 

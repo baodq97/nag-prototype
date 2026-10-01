@@ -105,10 +105,21 @@ describe('claimStatus', () => {
   });
 
   it('keeps planned claims in progress and never trusts a claim without references', () => {
+    const refs = [{ kind: 'control' as const, id: 'C1' }];
+    expect(claimStatus({ name: 'x', refs, planned: true }, context()).status).toBe('in-progress');
     expect(claimStatus({ name: 'x', refs: [], planned: true }, context()).status).toBe(
-      'in-progress',
+      'under-remediation',
     );
     expect(claimStatus({ name: 'x', refs: [] }, context()).status).toBe('under-remediation');
+  });
+
+  it('lets a failing reference win over the planned flag', () => {
+    const failing = context({ tests: byId([{ id: 'T1', status: 'failing' } as ComplianceTest]) });
+    const entry = { name: 'x', refs: [{ kind: 'control' as const, id: 'C1' }], planned: true };
+    expect(claimStatus(entry, failing)).toEqual({
+      status: 'under-remediation',
+      reasons: ['C1: 1 of 1 tests failing'],
+    });
   });
 });
 
@@ -130,12 +141,14 @@ describe('seeded trust page', () => {
     }
   });
 
-  it('does not show the four failing claims as in place', () => {
+  it('does not show the failing claims as in place', () => {
     expect(status('Human review of uncertain output')).toBe('under-remediation');
     expect(status('Prompt-injection screening')).toBe('under-remediation');
     expect(status('Tamper-evident records with three integrity layers')).toBe('under-remediation');
     expect(status('AI policy approved by leadership')).toBe('under-remediation');
-    expect(entries.filter((e) => e.status === 'under-remediation')).toHaveLength(4);
+    expect(status('MCP server allow-list')).toBe('under-remediation');
+    expect(status('Independent timestamp anchoring')).toBe('under-remediation');
+    expect(entries.filter((e) => e.status === 'under-remediation')).toHaveLength(6);
   });
 
   it('names the gap, the failing tests and the passed renewal as reasons', () => {
@@ -147,5 +160,6 @@ describe('seeded trust page', () => {
       'POL-01: renewal date 2026-09-15 has passed',
     ]);
     expect(reasons('Human review of uncertain output')).toEqual(['CTL-10: 1 of 2 tests failing']);
+    expect(reasons('MCP server allow-list')).toEqual(['CTL-14: 2 of 2 tests failing']);
   });
 });

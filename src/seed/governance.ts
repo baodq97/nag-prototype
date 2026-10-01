@@ -466,7 +466,7 @@ export const trustCategories: TrustCategory[] = [
     id: 'security',
     name: 'Security',
     entries: [
-      { name: 'MCP server allow-list', refs: [control('CTL-14')], planned: true },
+      { name: 'MCP server allow-list', refs: [control('CTL-14')] },
       { name: 'Prompt-injection screening', refs: [control('CTL-15')] },
     ],
   },

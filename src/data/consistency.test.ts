@@ -115,12 +115,14 @@ describe('trust claims', () => {
     }
   });
 
-  it('shows the four seeded claims as not in place', () => {
+  it('shows the seeded failing claims as not in place', () => {
     for (const name of [
       'Human review of uncertain output',
       'Prompt-injection screening',
       'Tamper-evident records with three integrity layers',
       'AI policy approved by leadership',
+      'MCP server allow-list',
+      'Independent timestamp anchoring',
     ]) {
       expect(entry(name).status, name).not.toBe('in-place');
       expect(entry(name).status, name).toBe('under-remediation');

@@ -62,7 +62,7 @@ test('erasing a subject whose ranges all verify says so', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test('the trust page shows four claims as under remediation', async ({ page }) => {
+test('the trust page shows the failing claims as under remediation', async ({ page }) => {
   const errors = collectErrors(page);
   await page.goto('/trust');
   await expect(page.getByRole('heading', { level: 1, name: 'Trust page' })).toBeVisible();
@@ -72,6 +72,8 @@ test('the trust page shows four claims as under remediation', async ({ page }) =
     'Prompt-injection screening',
     'Tamper-evident records with three integrity layers',
     'AI policy approved by leadership',
+    'MCP server allow-list',
+    'Independent timestamp anchoring',
   ]) {
     const item = page.getByRole('listitem').filter({ hasText: name });
     await expect(item, name).toContainText('Under remediation');

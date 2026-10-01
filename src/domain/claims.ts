@@ -73,16 +73,17 @@ function refProblem(ref: TrustRef, ctx: ClaimContext): string | null {
 
 /**
  * A claim is "In place" only when every object it references holds; one that does not shows
- * "Under remediation". A claim for something not built yet stays "In progress". A claim
- * without references can never be in place.
+ * "Under remediation", even when it is marked planned, so the flag cannot hide a failing
+ * check. A planned claim whose references all hold stays "In progress". A claim without
+ * references can never be in place.
  */
 export function claimStatus(entry: TrustEntry, ctx: ClaimContext): ClaimResult {
-  if (entry.planned) return { status: 'in-progress', reasons: [] };
   if (entry.refs.length === 0) {
     return { status: 'under-remediation', reasons: ['No console object backs this claim'] };
   }
   const reasons = entry.refs.flatMap((ref) => refProblem(ref, ctx) ?? []);
-  return { status: reasons.length === 0 ? 'in-place' : 'under-remediation', reasons };
+  if (reasons.length > 0) return { status: 'under-remediation', reasons };
+  return { status: entry.planned ? 'in-progress' : 'in-place', reasons };
 }
 
 export function deriveTrust(categories: TrustCategory[], ctx: ClaimContext): DerivedCategory[] {

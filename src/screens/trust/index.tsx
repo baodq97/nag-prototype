@@ -111,7 +111,8 @@ export default function Screen() {
             hand: whether the tests behind a control pass, whether policies and documents are
             approved and reviewed on time, and whether the evidence records verify. “In place” means
             every check behind the claim passes. “Under remediation” means a check behind the claim
-            currently fails. “In progress” means the work is planned and not finished.
+            currently fails, even when the work is still planned. “In progress” means the work is
+            planned and not finished, and no check behind it fails.
           </p>
           {trustEntries().map((cat) => (
             <Card key={cat.id} title={cat.name}>
