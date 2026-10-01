@@ -23,7 +23,8 @@ const okRange: RangeVerification = { fromSeq: 1, toSeq: 50, ok: true, layers: []
 
 function context(over: Partial<ClaimContext> = {}): ClaimContext {
   const test = { id: 'T1', status: 'passing' } as ComplianceTest;
-  const control = { id: 'C1', testIds: ['T1'], documentIds: [], policyIds: [] } as Control;
+  const none: string[] = [];
+  const control = { id: 'C1', testIds: ['T1'], documentIds: none, policyIds: none } as Control;
   return {
     controls: byId([control]),
     tests: byId([test]),

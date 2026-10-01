@@ -108,11 +108,11 @@ export default function Screen() {
           </h2>
           <p className="text-sm text-slate-700">
             Each status is worked out from the live state of our compliance console, not set by
-            hand: whether the tests behind a control pass, whether the policies and documents
-            behind it are approved and reviewed on time, and whether the evidence records verify. “In place” means
-            every check behind the claim passes. “Under remediation” means a check behind the claim
-            currently fails, even when the work is still planned. “In progress” means the work is
-            planned and not finished, and no check behind it fails.
+            hand: whether the tests behind a control pass, whether the policies and documents behind
+            it are approved and reviewed on time, and whether the evidence records verify. “In
+            place” means every check behind the claim passes. “Under remediation” means a check
+            behind the claim currently fails, even when the work is still planned. “In progress”
+            means the work is planned and not finished, and no check behind it fails.
           </p>
           {trustEntries().map((cat) => (
             <Card key={cat.id} title={cat.name}>
