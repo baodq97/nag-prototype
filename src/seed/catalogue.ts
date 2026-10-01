@@ -342,7 +342,11 @@ export const tests: ComplianceTest[] = TESTS.map(([name, integrationId, items, d
   const failingDays = FAILING[i];
   const failing = failingDays !== undefined;
   const slaDays = pick(random, [7, 14, 30]);
-  const failingSince = failing ? addDays(NOW, -Math.floor(random() * 25) - 2) : undefined;
+  const dueDays = failing ? failingDays : 30 + (i % 60);
+  // A failure starts one SLA before the due date, or earlier, and never later than yesterday,
+  // so it always comes before the due date. `back` moves it further into the past.
+  const startedFailing = (back: number) => addDays(NOW, Math.min(dueDays - slaDays, -1) - back);
+  const failingSince = failing ? startedFailing(Math.floor(random() * 10)) : undefined;
   // Some passing tests failed earlier in the 30-day window, so the trend moves.
   const fixedEarlier = !failing && i % 5 === 1;
   const entityCount = failing ? 1 + Math.floor(random() * 3) : 0;
@@ -352,13 +356,13 @@ export const tests: ComplianceTest[] = TESTS.map(([name, integrationId, items, d
     description,
     ownerId: pick(random, ownerIds),
     status: failing ? 'failing' : 'passing',
-    failingSince: failing ? failingSince : fixedEarlier ? addDays(NOW, -20 - (i % 7)) : undefined,
+    failingSince: failing ? failingSince : fixedEarlier ? startedFailing(19 + (i % 7)) : undefined,
     fixedAt: fixedEarlier ? addDays(NOW, -8 + (i % 5)) : undefined,
     failingEntities: Array.from(
       { length: entityCount },
       (_, k) => ENTITIES[(i + k * 3) % ENTITIES.length]!,
     ),
-    dueDate: addDays(NOW, failing ? failingDays : 30 + (i % 60)).slice(0, 10),
+    dueDate: addDays(NOW, dueDays).slice(0, 10),
     lastRunAt: addDays(NOW, -(i % 6) / 24 - 0.01),
     slaDays,
     integrationId,

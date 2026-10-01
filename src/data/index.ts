@@ -9,7 +9,7 @@ import { CODES } from '../domain/codes';
 import { erasureLayers } from '../domain/erasure';
 import { type ErasureClock, erasureClock, erasureDue } from '../domain/erasure-deadline';
 import { lastRun, nextRun, runAt } from '../domain/ledger-ops';
-import { escalationOf } from '../domain/escalation';
+import { escalationOf, isAboutToEscalate } from '../domain/escalation';
 import { blastRadius, breachTotals, stageHealth } from '../domain/health';
 import { integrationUnlocks } from '../domain/integrations';
 import {
@@ -181,6 +181,23 @@ export function escalationFor(item: QuarantineItem) {
   return escalationOf(item.receivedAt, NOW, tenant);
 }
 
+/** Queue counts for the summary strip; items decided in the session leave pending and soon. */
+export function quarantineSummary(decidedIds: ReadonlySet<string> | readonly string[] = []) {
+  const decided = new Set(decidedIds);
+  let pending = 0;
+  let aboutToEscalate = 0;
+  let expired = 0;
+  for (const item of quarantine) {
+    const e = escalationFor(item);
+    if (e.level === 'expired') expired += 1;
+    else if (!decided.has(item.id)) {
+      pending += 1;
+      if (isAboutToEscalate(e, NOW, tenant)) aboutToEscalate += 1;
+    }
+  }
+  return { pending, aboutToEscalate, expired };
+}
+
 export function verification() {
   return verifyRanges(evidence);
 }
@@ -288,10 +305,14 @@ export interface ElementGroup {
   total: number;
 }
 
-/** The conformity package checklist in its 3 groups, each with its count. */
+/** The conformity package checklist in its 3 groups, missing first, each with its count. */
 export function packageElements(): ElementGroup[] {
   return (['declaration', 'deployer', 'supplier'] as const).map((group) => {
-    const elements = declarationElements.filter((e) => e.group === group);
+    const inGroup = declarationElements.filter((e) => e.group === group);
+    const elements = [
+      ...inGroup.filter((e) => e.state === 'missing'),
+      ...inGroup.filter((e) => e.state === 'complete'),
+    ];
     return {
       group,
       elements,
@@ -299,6 +320,17 @@ export function packageElements(): ElementGroup[] {
       total: elements.length,
     };
   });
+}
+
+/** Readiness across the whole checklist; "yours" are the missing customer-authored elements. */
+export function packageReadiness() {
+  const missing = declarationElements.filter((e) => e.state === 'missing');
+  return {
+    total: declarationElements.length,
+    complete: declarationElements.length - missing.length,
+    missing: missing.length,
+    missingYours: missing.filter((e) => e.source === 'customer').length,
+  };
 }
 
 /** The tenant's integration level and scenario, with every level and scenario for the tables. */

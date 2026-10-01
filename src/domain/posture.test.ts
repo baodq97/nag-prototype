@@ -99,6 +99,6 @@ describe('posture figures from the seed', () => {
     const trend = postureTrend(tests, NOW);
     expect(trend).toHaveLength(30);
     expect(trend.at(-1)).toEqual({ date: '2026-09-30', passingPct: 70 });
-    expect(trend[0]).toEqual({ date: '2026-09-01', passingPct: 100 });
+    expect(trend[0]).toEqual({ date: '2026-09-01', passingPct: 95 });
   });
 });

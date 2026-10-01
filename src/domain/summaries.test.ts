@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { articleRows, postureSummary, verification } from '../data';
+import { attentionCounts } from './posture';
 import { NOW, integrations, tenant } from '../seed/base';
 import { controls, tests } from '../seed/catalogue';
 import { MISSING_SEQ, evidence } from '../seed/runtime';
@@ -35,6 +37,16 @@ describe('tests strip', () => {
       needsRemediation: posture.attention['needs-remediation'],
       dueSoon: posture.attention['due-soon'],
     });
+  });
+
+  it('has Posture and Tests read overdue and due soon from the one domain count', () => {
+    const a = attentionCounts(tests, NOW, tz);
+    expect([a.overdue, a['due-soon']]).toEqual([4, 5]);
+    for (const screen of ['posture/index.tsx', 'tests/index.tsx']) {
+      const source = readFileSync(new URL(`../screens/${screen}`, import.meta.url), 'utf8');
+      expect(source, screen).toMatch(/testStrip\(tests, NOW, tenant\.timeZone\)/);
+      expect(source, screen).not.toMatch(/daysUntil|attentionFor\(/);
+    }
   });
 
   it('puts each failing test in exactly one tile, and every tile filter counts its tests', () => {
