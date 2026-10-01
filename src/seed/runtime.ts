@@ -1,0 +1,284 @@
+// Seeded runtime behaviour. No runtime is connected; every value below is demo data.
+
+import type {
+  EvidenceRecord,
+  LatencyProfile,
+  LineageNode,
+  LineageTrace,
+  PolicyBundle,
+  PrivacyEndpoint,
+  QuarantineItem,
+} from '../domain/types';
+import { NOW, tenant } from './base';
+import { fakeHash, pick, rng } from './prng';
+
+const random = rng(4242);
+
+/** The sequence number missing from the evidence chain, to show a detected gap. */
+export const MISSING_SEQ = 137;
+const LAST_SEQ = 211;
+const BATCH_SIZE = 16;
+
+const EVENT_TYPES = [
+  'request.allowed',
+  'request.allowed',
+  'request.allowed',
+  'request.blocked',
+  'request.quarantined',
+  'tool.call',
+  'review.decision',
+];
+
+const ENDPOINTS = [
+  '/v1/credit-score',
+  '/v1/support-chat',
+  '/v1/document-summary',
+  '/v1/agent-tools',
+];
+
+function buildEvidence(): EvidenceRecord[] {
+  const records: EvidenceRecord[] = [];
+  let prevHash = '0'.repeat(64);
+  let index = 0;
+  for (let seq = 1; seq <= LAST_SEQ; seq++) {
+    const timestamp = new Date(Date.parse(NOW) - (LAST_SEQ - seq) * 173_000).toISOString();
+    const hash = fakeHash(`record:${seq}:${prevHash}`);
+    if (seq === MISSING_SEQ) {
+      // The record was written to the chain but is missing from the store.
+      prevHash = hash;
+      continue;
+    }
+    const batchId = Math.floor(index / BATCH_SIZE) + 1;
+    records.push({
+      seq,
+      timestamp,
+      tenantId: tenant.id,
+      eventType: pick(random, EVENT_TYPES),
+      endpoint: pick(random, ENDPOINTS),
+      subjectId: `subj-${String(1 + Math.floor(random() * 40)).padStart(4, '0')}`,
+      digest: `hmac-sha256:${fakeHash(`content:${seq}`)}`,
+      prevHash,
+      hash,
+      leafIndex: index % BATCH_SIZE,
+      batchId,
+      merkleRoot: fakeHash(`batch:${batchId}`),
+      anchor: {
+        provider: 'Timestamp authority (Stub)',
+        token: `tsa-${fakeHash(`anchor:${batchId}`).slice(0, 24)}`,
+        anchoredAt: new Date(Date.parse(timestamp) + 240_000).toISOString(),
+      },
+    });
+    prevHash = hash;
+    index += 1;
+  }
+  return records;
+}
+
+export const evidence: EvidenceRecord[] = buildEvidence();
+
+// Received times spread across business hours, a weekend and older items, relative to NOW
+// (Wednesday 30 September 2026, 10:00 Berlin).
+const QUARANTINE: [string, number, string][] = [
+  ['2026-09-30T07:55:00.000Z', 0.91, 'Possible personal data in a credit explanation'],
+  ['2026-09-30T07:30:00.000Z', 0.64, 'Unverified claim about a loan condition'],
+  ['2026-09-30T06:00:00.000Z', 0.58, 'Tone check flagged a support answer'],
+  ['2026-09-29T14:30:00.000Z', 0.77, 'Advice that may read as a credit decision'],
+  ['2026-09-29T13:00:00.000Z', 0.88, 'Tool call result with account numbers'],
+  ['2026-09-29T12:00:00.000Z', 0.69, 'Summary leaves out a risk warning'],
+  ['2026-09-29T11:00:00.000Z', 0.52, 'Low-confidence translation of terms'],
+  ['2026-09-29T09:00:00.000Z', 0.95, 'Answer refers to a protected characteristic'],
+  ['2026-09-29T07:00:00.000Z', 0.73, 'Agent proposed a refund above its limit'],
+  ['2026-09-28T12:00:00.000Z', 0.61, 'Unclear source for an interest-rate figure'],
+  ['2026-09-26T10:00:00.000Z', 0.86, 'Prompt-injection pattern in a tool result'],
+  ['2026-09-25T14:00:00.000Z', 0.67, 'Draft letter without the required notice'],
+  ['2026-09-24T08:00:00.000Z', 0.82, 'Possible profiling of a customer group'],
+  ['2026-09-23T10:00:00.000Z', 0.55, 'Answer cites an outdated policy version'],
+];
+
+const bandOf = (score: number) => (score >= 0.85 ? 'high' : score >= 0.6 ? 'medium' : 'low');
+
+export const quarantine: QuarantineItem[] = QUARANTINE.map(([receivedAt, score, summary], i) => ({
+  id: `Q-${String(1041 + i)}`,
+  receivedAt,
+  endpoint: ENDPOINTS[i % 3]!,
+  policyBundleId: ['PB-09', 'PB-11', 'PB-12'][i % 3]!,
+  score,
+  band: bandOf(score),
+  summary,
+}));
+
+export const traces: LineageTrace[] = [
+  {
+    id: 'TR-7f3a',
+    name: 'Customer support agent with MCP tools',
+    description: 'An orchestrator calls a model, a sub-agent and five MCP tools.',
+  },
+  {
+    id: 'TR-91c2',
+    name: 'Research chain at the depth limit',
+    description: 'Agents delegate down to depth 10, the deepest call allowed.',
+  },
+  {
+    id: 'TR-b604',
+    name: 'Runaway delegation stopped at depth 11',
+    description: 'A chain tries to go one level deeper than allowed and is rejected.',
+  },
+];
+
+function node(
+  traceId: string,
+  id: string,
+  parentId: string | null,
+  kind: LineageNode['kind'],
+  label: string,
+  outcome: LineageNode['outcome'],
+  offsetMs: number,
+): LineageNode {
+  return {
+    id,
+    traceId,
+    parentId,
+    kind,
+    label,
+    outcome,
+    startedAt: new Date(Date.parse(NOW) - 3_600_000 + offsetMs).toISOString(),
+    durationMs: 120 + Math.floor(random() * 900),
+  };
+}
+
+function chain(traceId: string, length: number, prefix: string): LineageNode[] {
+  return Array.from({ length }, (_, i) =>
+    node(
+      traceId,
+      `${prefix}-${i + 1}`,
+      i === 0 ? null : `${prefix}-${i}`,
+      i === 0 ? 'agent' : i % 3 === 0 ? 'llm' : 'agent',
+      i === 0 ? 'planner' : `delegate-${i + 1}`,
+      'success',
+      i * 400,
+    ),
+  );
+}
+
+export const lineage: LineageNode[] = [
+  node('TR-7f3a', 'a1', null, 'agent', 'support-orchestrator', 'success', 0),
+  node('TR-7f3a', 'a2', 'a1', 'llm', 'draft answer', 'success', 300),
+  node('TR-7f3a', 'a3', 'a1', 'mcp-tool', 'crm.lookup_customer', 'success', 500),
+  node('TR-7f3a', 'a4', 'a1', 'mcp-tool', 'kb.search', 'success', 700),
+  node('TR-7f3a', 'a5', 'a1', 'agent', 'billing-agent', 'success', 900),
+  node('TR-7f3a', 'a6', 'a5', 'mcp-tool', 'invoice.fetch', 'success', 1100),
+  node('TR-7f3a', 'a7', 'a5', 'mcp-tool', 'payments.refund', 'cancelled', 1300),
+  node('TR-7f3a', 'a8', 'a1', 'mcp-tool', 'ticket.create', 'error', 1500),
+  node('TR-7f3a', 'a9', 'a1', 'mcp-tool', 'email.send', 'abandoned', 1700),
+  ...chain('TR-91c2', 10, 'b'),
+  ...chain('TR-b604', 10, 'c'),
+  node(
+    'TR-b604',
+    'c-11',
+    'c-10',
+    'rejected',
+    'delegate-11 (rejected: depth 11 > 10)',
+    'error',
+    4400,
+  ),
+];
+
+const ART5 = [
+  'Manipulative or deceptive techniques',
+  'Exploiting vulnerable groups',
+  'Social scoring',
+  'Crime prediction from profiling alone',
+  'Untargeted scraping of facial images',
+  'Emotion recognition at work or school',
+  'Biometric categorisation of sensitive traits',
+  'Real-time remote biometric identification',
+];
+
+export const policyBundles: PolicyBundle[] = [
+  ...ART5.map((name, i): PolicyBundle => ({
+    id: `PB-0${i + 1}`,
+    name,
+    description: 'Blocks requests that fall under this prohibited practice.',
+    article5: true,
+    class: 'A',
+    budgetMs: 15 + i * 2,
+    breach: 'fail-closed',
+    version: `1.${i % 3}.0`,
+  })),
+  {
+    id: 'PB-09',
+    name: 'Personal data redaction',
+    description: 'Masks personal data in model output before it leaves the gateway.',
+    article5: false,
+    class: 'B',
+    budgetMs: 40,
+    breach: 'quarantine',
+    version: '2.3.1',
+  },
+  {
+    id: 'PB-10',
+    name: 'Prompt-injection screen',
+    description: 'Screens prompts and tool results for injection patterns.',
+    article5: false,
+    class: 'A',
+    budgetMs: 25,
+    breach: 'fail-closed',
+    version: '3.0.0',
+  },
+  {
+    id: 'PB-11',
+    name: 'Credit decision explanation check',
+    description: 'Checks that credit answers carry a reason and a route to a person.',
+    article5: false,
+    class: 'C',
+    budgetMs: 120,
+    breach: 'quarantine',
+    version: '1.4.2',
+  },
+  {
+    id: 'PB-12',
+    name: 'Tone and wording filter',
+    description: 'Flags support answers whose tone breaks the house style.',
+    article5: false,
+    class: 'B',
+    budgetMs: 30,
+    breach: 'fail-open',
+    version: '1.1.0',
+  },
+  {
+    id: 'PB-13',
+    name: 'Legacy keyword list',
+    description: 'An old keyword list imported without a class or a budget.',
+    article5: false,
+    breach: 'fail-open',
+    version: '0.3.0',
+  },
+];
+
+export const latencyProfiles: LatencyProfile[] = [
+  { id: 'lite', name: 'Lite profile', budgetMs: 30 },
+  { id: 'full', name: 'Full profile', budgetMs: 150 },
+];
+
+export const privacyEndpoints: PrivacyEndpoint[] = [
+  {
+    id: 'ep-credit',
+    name: 'Credit scoring assistant',
+    path: '/v1/credit-score',
+    contentLogging: false,
+  },
+  {
+    id: 'ep-support',
+    name: 'Customer support agent',
+    path: '/v1/support-chat',
+    contentLogging: false,
+  },
+  {
+    id: 'ep-summary',
+    name: 'Document summariser',
+    path: '/v1/document-summary',
+    contentLogging: false,
+  },
+  { id: 'ep-tools', name: 'Agent tool gateway', path: '/v1/agent-tools', contentLogging: false },
+  { id: 'ep-sandbox', name: 'Internal sandbox', path: '/v1/sandbox', contentLogging: true },
+];
