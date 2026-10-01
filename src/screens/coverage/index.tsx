@@ -393,7 +393,11 @@ export default function Screen() {
                 setParams(
                   (prev) => {
                     const next = new URLSearchParams(prev);
-                    for (const k of ['group', 'role', 'risk', 'nag', 'status', 'q']) next.delete(k);
+                    // The system line names a filter too: clearing leaves no stale "Showing
+                    // articles for …" above the full list.
+                    for (const k of ['system', 'group', 'role', 'risk', 'nag', 'status', 'q']) {
+                      next.delete(k);
+                    }
                     return next;
                   },
                   { replace: true },

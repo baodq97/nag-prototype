@@ -175,6 +175,14 @@ test('a system narrows the article coverage and Clear shows every article again'
   await expect(page).not.toHaveURL(/system=/);
   await expect(page.getByText('Showing 57 of 57 articles')).toBeVisible();
   await expect(page.locator('tbody tr')).toHaveCount(57);
+
+  // "Clear filters" drops the system with the other filters.
+  await page.goto('/coverage?system=sys-credit&role=both&risk=high&status=needs-attention');
+  await expect(page.getByText(`Showing articles for ${name}`)).toBeVisible();
+  await page.getByRole('button', { name: 'Clear filters', exact: true }).click();
+  await expect(page.getByText(`Showing articles for ${name}`)).toBeHidden();
+  await expect(page).not.toHaveURL(/system=/);
+  await expect(page.getByText('Showing 57 of 57 articles')).toBeVisible();
   expect(errors).toEqual([]);
 });
 
