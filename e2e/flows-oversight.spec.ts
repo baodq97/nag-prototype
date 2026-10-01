@@ -2,6 +2,7 @@
 // decisions and the kill switch.
 
 import { expect, test } from '@playwright/test';
+import { evidence } from '../src/data';
 import { collectErrors } from './helpers';
 
 test('verify shows the gap at seq 137 and the other ranges as verified', async ({ page }) => {
@@ -96,6 +97,36 @@ test('the kill switch activates with any 6-digit code and resumes with two disti
   await expect(timeline).toContainText('Resume approved by Compliance Lead');
   await expect(timeline).toContainText('Resume approved by CEO');
   await expect(timeline).toContainText('Kill switch resumed');
+
+  expect(errors).toEqual([]);
+});
+
+test('erasure refuses an unknown subject and walks every stage for a known one', async ({
+  page,
+}) => {
+  const errors = collectErrors(page);
+  const subject = evidence[0]!.subjectId;
+  const count = evidence.filter((r) => r.subjectId === subject).length;
+  await page.goto('/privacy');
+  await expect(page.getByRole('heading', { level: 1, name: 'Privacy and erasure' })).toBeVisible();
+
+  const field = page.getByLabel('Subject ID');
+  const start = page.getByRole('button', { name: 'Start erasure' });
+  await field.fill('subj-9999');
+  await start.click();
+  await expect(page.getByText('No evidence record has the subject ID subj-9999')).toBeVisible();
+  await expect(page.getByRole('list', { name: 'Erasure stages' })).toBeHidden();
+
+  await field.fill(subject);
+  await start.click();
+  await page.getByRole('button', { name: 'Confirm and destroy key' }).click();
+  await expect(page.getByText('2. Key destroyed (done)')).toBeAttached();
+  await expect(page.getByTestId('countable')).toBeHidden();
+
+  await page.getByRole('button', { name: 'Count remaining records' }).click();
+  await expect(page.getByTestId('countable')).toContainText(`${count} record`);
+  await page.getByRole('button', { name: 'Record attestation' }).click();
+  await expect(page.getByRole('list', { name: 'Erasure attestations' })).toContainText(subject);
 
   expect(errors).toEqual([]);
 });

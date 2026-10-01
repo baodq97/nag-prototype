@@ -98,6 +98,10 @@ function ErasureFlow() {
       setError('Enter a subject ID, for example subj-0007.');
       return;
     }
+    if (countFor(id) === 0) {
+      setError(`No evidence record has the subject ID ${id}. Nothing was started.`);
+      return;
+    }
     setError(null);
     updateSession((s) => ({
       ...s,
@@ -147,7 +151,7 @@ function ErasureFlow() {
                     Confirm that the key for the content of {run.subjectId} should be destroyed.
                     This cannot be undone in the demo.
                   </p>
-                  <Button variant="danger" onClick={() => setStage('countable')}>
+                  <Button variant="danger" onClick={() => setStage('key-destroyed')}>
                     Confirm and destroy key
                   </Button>
                 </div>
@@ -155,11 +159,18 @@ function ErasureFlow() {
                 'Confirmed.'
               )}
             </Step>
-            <Step done={reached >= 2} title="2. Key destroyed">
-              {reached >= 2 && (
+            <Step done={reached >= 1} title="2. Key destroyed">
+              {reached >= 1 && (
                 <span className="flex items-center gap-2">
                   Key destroyed <StubLabel what="Key management" />
                 </span>
+              )}
+              {reached === 1 && (
+                <div className="mt-2">
+                  <Button variant="primary" onClick={() => setStage('countable')}>
+                    Count remaining records
+                  </Button>
+                </div>
               )}
             </Step>
             <Step done={reached >= 2} title="3. Records stay countable">
