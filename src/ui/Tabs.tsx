@@ -3,19 +3,31 @@ import { type ReactNode, useId, useState } from 'react';
 export interface TabDef {
   id: string;
   label: string;
+  /** Shown next to the label, e.g. "Errors 1". */
+  count?: number;
   content: ReactNode;
 }
 
+/** Tabs with optional counts. Pass `value` and `onChange` to keep the active tab in the URL. */
 export function Tabs({
   tabs,
   label,
   initial,
+  value,
+  onChange,
 }: {
   tabs: TabDef[];
   label: string;
   initial?: string;
+  value?: string | null;
+  onChange?: (id: string) => void;
 }) {
-  const [active, setActive] = useState(initial ?? tabs[0]?.id);
+  const [local, setLocal] = useState(initial ?? tabs[0]?.id);
+  const active = value ?? local;
+  const setActive = (id: string) => {
+    setLocal(id);
+    onChange?.(id);
+  };
   const base = useId();
   const current = tabs.find((t) => t.id === active) ?? tabs[0];
   return (
@@ -41,6 +53,11 @@ export function Tabs({
               className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium ${selected ? 'border-accent-600 text-accent-700' : 'border-transparent text-slate-600 hover:text-slate-900'}`}
             >
               {t.label}
+              {t.count !== undefined && (
+                <span className="ml-1.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700">
+                  {t.count}
+                </span>
+              )}
             </button>
           );
         })}

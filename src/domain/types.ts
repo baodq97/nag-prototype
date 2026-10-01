@@ -199,6 +199,8 @@ export interface ReasoningLine {
   step: string;
   answer: string;
   reason: string;
+  /** What the answer leads to, shown as a chip: "Status: high risk", "Duty: transparency", "End". */
+  outcome: string;
 }
 
 /** The result of replaying a system's answers. */
@@ -241,19 +243,42 @@ export interface AiSystemView extends AiSystem {
 /** Serious incident kinds, each with its own reporting clock. */
 export type IncidentKind = 'serious' | 'death' | 'widespread-or-critical';
 
+/** The category of a source; one neutral icon per category, never a vendor's. */
 export type IntegrationKind =
-  | 'reverse-proxy'
-  | 'lifecycle-hooks'
+  | 'ai-gateway'
+  | 'agent-hooks'
   | 'mcp-inspector'
+  | 'model-endpoint'
   | 'identity'
   | 'ticketing'
-  | 'cloud'
-  | 'source-control';
+  | 'chat'
+  | 'key-management'
+  | 'evidence-archive'
+  | 'security-export'
+  | 'timestamp-authority'
+  | 'source-repository'
+  | 'cloud';
+
+/** What a scope entry is; the scope dialog groups by it. */
+export type ResourceKind = 'endpoint' | 'agent' | 'mcp-server' | 'tool' | 'other';
 
 export interface ScopeEntry {
   id: string;
   label: string;
   included: boolean;
+  kind: ResourceKind;
+}
+
+export interface IntegrationActivity {
+  at: string;
+  text: string;
+}
+
+/** Why a source in error stopped, since when, and how to fix it. */
+export interface IntegrationFailure {
+  what: string;
+  since: string;
+  fixSteps: string[];
 }
 
 export interface Integration {
@@ -264,8 +289,20 @@ export interface Integration {
   capabilities: string[];
   status: 'connected' | 'error' | 'not-connected';
   errorMessage?: string;
+  /** Last heartbeat. */
   lastSyncAt?: string;
   scope: ScopeEntry[];
+  /** Kinds of system the source works with, in plain words. */
+  worksWith: string[];
+  /** Seeded connection details (demo data); keys are ids, never secrets. */
+  connection: { endpoint: string; authMethod: string; keyId: string; lastRotatedAt: string };
+  /** Seeded health figures; absent when not connected. */
+  health?: { eventsPerMinute: number; errorRatePct: number };
+  activity: IntegrationActivity[];
+  /** Set exactly when the status is "error". */
+  failure?: IntegrationFailure;
+  /** Configuration snippet shown in the connect flow. */
+  snippet: string;
 }
 
 /** Ids of the decision and error codes NAG writes; the catalogue is in `codes.ts`. */

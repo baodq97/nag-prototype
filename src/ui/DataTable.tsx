@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, ArrowUpDown, Search } from 'lucide-react';
-import { type ReactNode, useId, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useId, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { Button } from './Button';
 import { type Column, type Sort, sortRows } from './sort';
 
@@ -36,6 +37,38 @@ interface Props<T> {
   onSortChange?: (sort: Sort) => void;
   /** Changing this value clears the filter text and the facets. */
   resetKey?: string | number;
+  /**
+   * Rows with a problem (error, failing, overdue, needs attention) sort above all others until
+   * the user picks a column; inside each part the initial sort applies.
+   */
+  problem?: (row: T) => boolean;
+  /**
+   * Keeps the filter text in `?q=` and each facet in `?<facet key>=`, so a reload restores
+   * them. Leave it off for a second table on the same screen.
+   */
+  urlState?: boolean;
+  /** Shown when there are no rows at all, as opposed to no rows matching the filters. */
+  empty?: { title: string; body?: string };
+}
+
+/** Placeholder rows while a screen's code loads. */
+export function TableSkeleton({ rows = 6 }: { rows?: number }) {
+  return (
+    <div role="status" className="flex flex-col gap-2 px-6 py-5">
+      <span className="sr-only">Loading…</span>
+      <div aria-hidden className="h-6 w-48 animate-pulse rounded bg-slate-200" />
+      <div aria-hidden className="h-4 w-96 animate-pulse rounded bg-slate-100" />
+      <div aria-hidden className="mt-2 overflow-hidden rounded-lg border border-slate-200 bg-white">
+        {Array.from({ length: rows }, (_, i) => (
+          <div key={i} className="flex h-12 items-center gap-4 border-b border-slate-100 px-3">
+            <div className="h-3 w-1/4 animate-pulse rounded bg-slate-100" />
+            <div className="h-3 w-1/3 animate-pulse rounded bg-slate-100" />
+            <div className="h-3 w-16 animate-pulse rounded bg-slate-100" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 const asList = (v: string | string[]) => (Array.isArray(v) ? v : [v]);
@@ -57,37 +90,79 @@ export function DataTable<T>({
   onPageChange,
   onSortChange,
   resetKey,
+  problem,
+  urlState = false,
+  empty,
 }: Props<T>) {
-  const [query, setQuery] = useState(initialQuery);
-  const [chosen, setChosen] = useState<Record<string, string>>({});
+  const [params, setParams] = useSearchParams();
+  const [localQuery, setLocalQuery] = useState(initialQuery);
+  const [localChosen, setLocalChosen] = useState<Record<string, string>>({});
   const [sort, setSort] = useState(initialSort);
+  const [userSorted, setUserSorted] = useState(false);
   const [seenResetKey, setSeenResetKey] = useState(resetKey);
   const base = useId();
+
+  const query = urlState ? (params.get('q') ?? '') : localQuery;
+  const chosen: Record<string, string> = urlState
+    ? Object.fromEntries(facets.map((f) => [f.key, params.get(f.key) ?? '']))
+    : localChosen;
+
+  const writeUrl = useCallback(
+    (changes: Record<string, string>) =>
+      setParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          for (const [k, v] of Object.entries(changes)) {
+            if (v) next.set(k, v);
+            else next.delete(k);
+          }
+          return next;
+        },
+        { replace: true },
+      ),
+    [setParams],
+  );
+  const setQuery = (value: string) => (urlState ? writeUrl({ q: value }) : setLocalQuery(value));
+  const setFacet = (key: string, value: string) =>
+    urlState ? writeUrl({ [key]: value }) : setLocalChosen((c) => ({ ...c, [key]: value }));
+  const clearAll = () => {
+    if (urlState) writeUrl(Object.fromEntries([['q', ''], ...facets.map((f) => [f.key, ''])]));
+    setLocalQuery('');
+    setLocalChosen({});
+  };
 
   // A new reset key clears the filters during render, so no effect and no extra page change.
   if (resetKey !== seenResetKey) {
     setSeenResetKey(resetKey);
-    setQuery('');
-    setChosen({});
+    setLocalQuery('');
+    setLocalChosen({});
   }
 
   const options = useMemo(
     () =>
       Object.fromEntries(
-        facets.map((f) => [f.key, [...new Set(rows.flatMap((r) => asList(f.value(r))))].sort()]),
+        facets.map((f) => {
+          const counts = new Map<string, number>();
+          for (const r of rows) {
+            for (const v of new Set(asList(f.value(r)))) counts.set(v, (counts.get(v) ?? 0) + 1);
+          }
+          return [f.key, [...counts.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))];
+        }),
       ),
     [facets, rows],
   );
 
-  const visible = useMemo(() => {
+  const visible = (() => {
     const q = query.trim().toLowerCase();
     const filtered = rows.filter(
       (r) =>
         (!q || searchText(r).toLowerCase().includes(q)) &&
         facets.every((f) => !chosen[f.key] || asList(f.value(r)).includes(chosen[f.key]!)),
     );
-    return sortRows(filtered, columns, sort);
-  }, [rows, query, chosen, facets, columns, sort, searchText]);
+    const sorted = sortRows(filtered, columns, sort);
+    if (!problem || userSorted) return sorted;
+    return [...sorted.filter(problem), ...sorted.filter((r) => !problem(r))];
+  })();
 
   const pages = pageSize ? Math.max(1, Math.ceil(visible.length / pageSize)) : 1;
   const current = Number.isInteger(page) && page >= 1 && page <= pages ? page : 1;
@@ -97,8 +172,7 @@ export function DataTable<T>({
   const toFirstPage = () => onPageChange?.(1);
   const filtering = query !== '' || Object.values(chosen).some(Boolean);
   const clear = () => {
-    setQuery('');
-    setChosen({});
+    clearAll();
     toFirstPage();
   };
 
@@ -130,16 +204,15 @@ export function DataTable<T>({
             <select
               value={chosen[f.key] ?? ''}
               onChange={(e) => {
-                const value = e.target.value;
-                setChosen((c) => ({ ...c, [f.key]: value }));
+                setFacet(f.key, e.target.value);
                 toFirstPage();
               }}
               className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm"
             >
               <option value="">All</option>
-              {options[f.key]?.map((o) => (
+              {options[f.key]?.map(([o, n]) => (
                 <option key={o} value={o}>
-                  {f.format ? f.format(o) : o}
+                  {f.format ? f.format(o) : o} ({n})
                 </option>
               ))}
             </select>
@@ -174,6 +247,7 @@ export function DataTable<T>({
                         onClick={() => {
                           const next: Sort = { key: c.key, dir: dir === 'asc' ? 'desc' : 'asc' };
                           setSort(next);
+                          setUserSorted(true);
                           onSortChange?.(next);
                           toFirstPage();
                         }}
@@ -201,10 +275,10 @@ export function DataTable<T>({
               <tr
                 key={rowKey(r)}
                 onClick={onRowClick ? () => onRowClick(r) : undefined}
-                className={onRowClick ? 'cursor-pointer hover:bg-slate-50' : undefined}
+                className={`h-12 hover:bg-slate-50 focus-within:bg-accent-50/60 ${onRowClick ? 'cursor-pointer' : ''}`}
               >
                 {columns.map((c) => (
-                  <td key={c.key} className={`px-3 py-2 align-top ${c.className ?? ''}`}>
+                  <td key={c.key} className={`px-3 py-2 align-middle ${c.className ?? ''}`}>
                     {c.render(r)}
                   </td>
                 ))}
@@ -212,7 +286,15 @@ export function DataTable<T>({
             ))}
           </tbody>
         </table>
-        {visible.length === 0 && (
+        {rows.length === 0 && (
+          <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+            <p className="text-sm font-medium text-slate-900">
+              {empty?.title ?? `No ${label} yet`}
+            </p>
+            {empty?.body && <p className="text-xs text-slate-600">{empty.body}</p>}
+          </div>
+        )}
+        {rows.length > 0 && visible.length === 0 && (
           <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
             <p className="text-sm font-medium text-slate-900">No {label} match these filters</p>
             <p className="text-xs text-slate-600">Change the filter text or choose “All”.</p>

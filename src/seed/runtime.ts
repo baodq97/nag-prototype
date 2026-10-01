@@ -69,6 +69,15 @@ export const ledgerSchedule: LedgerSchedule = {
   minute: 0,
 };
 
+/**
+ * The last recorded verification run (demo data): when it ran, and the failing test seeded for
+ * evidence integrity that the gap feeds. Its range results are replayed from the ledger.
+ */
+export const lastVerification = {
+  at: '2026-09-30T06:00:00.000Z',
+  integrityTestId: 'TST-013',
+};
+
 const ENDPOINTS = [
   '/v1/credit-score',
   '/v1/support-chat',
