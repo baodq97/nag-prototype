@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { traceNodes, traces } from '../../data';
-import { MAX_DEPTH, layoutTrace } from '../../domain/lineage';
+import { MAX_DEPTH, layoutTrace, parentLabel } from '../../domain/lineage';
 import type { LineageKind, LineageOutcome } from '../../domain/types';
 import { Card } from '../../ui/Card';
 import { SelectField } from '../../ui/Field';
@@ -139,6 +139,7 @@ export default function LineageScreen() {
   const trace = traces.find((t) => t.id === traceId);
   const nodes = traceNodes(traceId);
   const layout = layoutTrace(nodes);
+  const nodesById = new Map(nodes.map((n) => [n.id, n]));
   const depthOf = new Map(layout.nodes.map((p) => [p.node.id, p.depth]));
   const rejected = nodes.filter((n) => n.kind === 'rejected');
   const reached = Math.max(
@@ -154,12 +155,12 @@ export default function LineageScreen() {
     >
       <Card>
         <div className="flex flex-wrap items-end gap-4">
-          <div className="w-80">
+          <div className="w-fit max-w-full">
             <SelectField
               label="Trace"
               value={traceId}
               onChange={(e) => setTraceId(e.target.value)}
-              options={traces.map((t) => ({ value: t.id, label: `${t.id} · ${t.name}` }))}
+              options={traces.map((t) => ({ value: t.id, label: t.name }))}
             />
           </div>
           <p className="max-w-xl pb-1.5 text-sm text-slate-700">{trace?.description}</p>
@@ -181,7 +182,7 @@ export default function LineageScreen() {
       <Card title="Calls in this trace">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <caption className="sr-only">Calls in trace {traceId}, in call-graph order</caption>
+            <caption className="sr-only">Calls in trace {trace?.name}, in call-graph order</caption>
             <thead className="text-xs text-slate-600">
               <tr>
                 {['Call', 'Depth', 'Kind', 'Parent', 'Outcome', 'Duration'].map((h) => (
@@ -199,9 +200,7 @@ export default function LineageScreen() {
                   </th>
                   <td className="px-2 py-1.5 tabular-nums">{depth}</td>
                   <td className="px-2 py-1.5">{KIND_LABEL[node.kind]}</td>
-                  <td className="px-2 py-1.5 font-mono text-xs">
-                    {node.parentId ?? 'none (root)'}
-                  </td>
+                  <td className="px-2 py-1.5">{parentLabel(node, nodesById)}</td>
                   <td className="px-2 py-1.5">
                     <StatusChip status={node.outcome} />
                   </td>
