@@ -5,6 +5,7 @@ CLAUDE.local.md
 INCIDENTS.md
 node_modules/
 dist/
+dist-*/
 coverage/
 test-results/
 playwright-report/
