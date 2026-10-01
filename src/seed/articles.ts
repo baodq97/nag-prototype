@@ -380,10 +380,13 @@ const DEPLOYER: Line[] = [
     '26(3)',
     'Other duties stay in place',
     NA,
-    MUST,
+    NA,
     'supports',
     'Keeps the oversight setup configurable, so it fits your own organisation.',
-    'Organise your own resources and keep meeting your other legal duties.',
+    'Nothing new on this row; your other legal duties stay as they are.',
+    {
+      note: 'A clarification, not a duty: the deployer keeps its other legal duties and stays free to organise its own resources for oversight.',
+    },
   ],
   [
     '26(4)',

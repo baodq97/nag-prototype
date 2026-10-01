@@ -269,7 +269,9 @@ describe('article map and AI systems', () => {
       expect(ids('sys-credit'), id).toContain(id);
     }
     // Information rows owe nothing, so no system lists them as a duty.
-    for (const s of aiSystems()) expect(ids(s.id), s.id).not.toContain('aia-99');
+    for (const s of aiSystems()) {
+      for (const id of ['aia-26-3', 'aia-99']) expect(ids(s.id), s.id).not.toContain(id);
+    }
     expect(rowsForSystem('sys-unknown')).toEqual([]);
     expect(getSystem('sys-credit')?.endpoint).toBe('/v1/credit-score');
   });

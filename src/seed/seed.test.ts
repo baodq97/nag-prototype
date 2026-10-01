@@ -111,7 +111,7 @@ describe('article map', () => {
     const noDuty = articleMap.filter(
       (r) => r.provider.kind === 'not-applicable' && r.deployer.kind === 'not-applicable',
     );
-    expect(noDuty.map((r) => r.id)).toEqual(['aia-99']);
+    expect(noDuty.map((r) => r.id).sort()).toEqual(['aia-26-3', 'aia-99']);
     for (const r of noDuty) {
       expect(r.note, r.id).toBeTruthy();
       expect(r.nagRole, r.id).toBe('supports');
