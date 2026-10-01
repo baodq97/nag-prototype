@@ -112,6 +112,21 @@ function ResumePanel({ approvals }: { approvals: { role: string; by: string; at:
     });
     if (!result.ok) {
       setError(result.error);
+      // A refused approval is an operation too, so it lands on the timeline.
+      updateSession((s) => ({
+        ...s,
+        killSwitch: {
+          ...s.killSwitch,
+          timeline: [
+            ...s.killSwitch.timeline,
+            {
+              at: sessionNow(),
+              actor: role,
+              text: `Resume approval refused: ${role} has already approved.`,
+            },
+          ],
+        },
+      }));
       return;
     }
     setError(null);
@@ -147,6 +162,11 @@ function ResumePanel({ approvals }: { approvals: { role: string; by: string; at:
       <p className="mb-3 text-sm text-slate-700">
         Resuming needs approvals from {RESUME_ROLES_NEEDED} distinct roles. The same role cannot
         approve twice.
+      </p>
+      <p className="mb-3 flex items-center gap-2 text-xs text-slate-600">
+        <StubLabel what="Sign-in" /> There is no sign-in in this prototype: you pick the role, and
+        every approval is recorded as {personName(currentUserId)}. A real deployment needs two
+        different people.
       </p>
       <p className="mb-3 text-sm text-slate-900" data-testid="approval-count">
         Approvals: {approvals.length} of {RESUME_ROLES_NEEDED}

@@ -84,7 +84,7 @@ test('the kill switch activates with any 6-digit code and resumes with two disti
   await role.selectOption('Compliance Lead');
   await approve.click();
   await approve.click();
-  await expect(page.getByText(/has already approved/)).toBeVisible();
+  await expect(page.getByRole('alert')).toContainText('has already approved');
   await expect(state).toHaveText('Active – AI requests receive 503');
 
   await role.selectOption('CEO');
@@ -92,9 +92,12 @@ test('the kill switch activates with any 6-digit code and resumes with two disti
   await expect(state).toHaveText('Normal – AI requests are served');
 
   const timeline = page.getByRole('list', { name: 'Kill switch timeline' });
-  await expect(timeline.getByRole('listitem')).toHaveCount(4);
+  await expect(timeline.getByRole('listitem')).toHaveCount(5);
   await expect(timeline).toContainText('Kill switch activated');
   await expect(timeline).toContainText('Resume approved by Compliance Lead');
+  await expect(timeline).toContainText(
+    'Resume approval refused: Compliance Lead has already approved',
+  );
   await expect(timeline).toContainText('Resume approved by CEO');
   await expect(timeline).toContainText('Kill switch resumed');
 
