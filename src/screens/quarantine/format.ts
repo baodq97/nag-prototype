@@ -8,13 +8,16 @@ export function fmtMinutes(minutes: number): string {
   return m === 0 ? `${h} h` : `${h} h ${m} min`;
 }
 
-/** Wall-clock age of an item at the fixed demo "now". */
-export function fmtAge(receivedAt: string): string {
-  const minutes = Math.max(0, Math.round((Date.parse(NOW) - Date.parse(receivedAt)) / 60_000));
-  if (minutes < 60) return `${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 48) return `${hours} h`;
-  return `${Math.floor(hours / 24)} d`;
+/** Short wall-clock label of a moment in the tenant time zone: "14:30", or "Tue 14:30" on another day. */
+export function fmtNextAt(at: string, timeZone: string): string {
+  const opts = { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' } as const;
+  const time = new Intl.DateTimeFormat('en-GB', opts).format(new Date(at));
+  const day = (v: string) => new Intl.DateTimeFormat('en-CA', { timeZone }).format(new Date(v));
+  if (day(at) === day(NOW)) return time;
+  const weekday = new Intl.DateTimeFormat('en-GB', { timeZone, weekday: 'short' }).format(
+    new Date(at),
+  );
+  return `${weekday} ${time}`;
 }
 
 /** Score range of a band: the lower bound is included, the upper bound is not (except 1.00). */

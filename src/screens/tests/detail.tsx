@@ -260,7 +260,6 @@ function TestDetail({ test }: { test: ComplianceTest }) {
     <Page
       title={test.name}
       demo
-      description={test.description}
       actions={
         <>
           <Link to="/tests" className="text-sm font-medium text-accent-700 hover:underline">
@@ -336,6 +335,7 @@ function TestDetail({ test }: { test: ComplianceTest }) {
             count: test.failingEntities.length,
             content: (
               <div className="flex flex-col gap-3">
+                <p className="text-sm text-slate-700">{test.description}</p>
                 {test.status === 'failing' && test.failingSince && (
                   <p className="text-sm text-slate-700">
                     Failing since {fmtDate(test.failingSince)}; fix by {fmtDate(test.dueDate)}.

@@ -5,14 +5,16 @@ import {
   escalationFor,
   personName,
   quarantine,
+  quarantineSummary,
   tenant,
 } from '../../data';
+import { ABOUT_TO_ESCALATE_HOURS } from '../../domain/escalation';
 import { bandLine, bandRanges } from '../../domain/classifier';
 import { checkJustification } from '../../domain/justification';
 import type { QuarantineItem } from '../../domain/types';
 import { sessionNow, updateSession, useSession } from '../../session/store';
 import { Button } from '../../ui/Button';
-import { Card } from '../../ui/Card';
+import { Card, Stat } from '../../ui/Card';
 import { DataTable, type Column, type Facet } from '../../ui/DataTable';
 import { Drawer } from '../../ui/Drawer';
 import { TextArea } from '../../ui/Field';
@@ -20,7 +22,7 @@ import { fmtDateTime } from '../../ui/format';
 import { StubLabel } from '../../ui/Labels';
 import { Page } from '../../ui/Page';
 import { StatusChip } from '../../ui/StatusChip';
-import { fmtAge, fmtBandRange, fmtBelowRange, fmtMinutes } from './format';
+import { fmtBandRange, fmtBelowRange, fmtMinutes, fmtNextAt } from './format';
 
 const TH = 'px-3 py-2 text-left text-xs font-semibold text-slate-700';
 const TD = 'px-3 py-2 align-top text-sm text-slate-800';
@@ -96,16 +98,19 @@ const NEXT_LEVEL = {
   manager: 'expiry',
 } as const;
 
-function EscalationInfo({ item }: { item: QuarantineItem }) {
+function EscalationInfo({ item, compact = false }: { item: QuarantineItem; compact?: boolean }) {
   const esc = escalationFor(item);
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-xs text-slate-700">
-        {fmtMinutes(esc.businessMinutes)} business time elapsed
+        {fmtMinutes(esc.businessMinutes)}
+        {compact ? ' elapsed' : ' business time elapsed'}
       </span>
       {esc.nextAt && esc.level !== 'expired' ? (
         <span className="text-xs text-slate-600">
-          Next: {NEXT_LEVEL[esc.level]} at {fmtDateTime(esc.nextAt)}
+          {compact
+            ? `→ ${NEXT_LEVEL[esc.level]} ${fmtNextAt(esc.nextAt, tenant.timeZone)}`
+            : `Next: ${NEXT_LEVEL[esc.level]} at ${fmtDateTime(esc.nextAt)}`}
         </span>
       ) : (
         <span className="text-xs text-slate-600">{expiryEvent()}</span>
@@ -133,9 +138,35 @@ function DecisionChip({ item }: { item: QuarantineItem }) {
   return <span className="text-xs text-slate-600">Pending</span>;
 }
 
+function EscalationExplanation() {
+  return (
+    <Card title="How escalation works">
+      <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
+        <li>
+          Time counts only in business hours: 09:00–17:00, Monday to Friday, in the tenant time zone
+          ({tenant.timeZone}).
+        </li>
+        <li>After 4 business hours without a decision, the item goes to the secondary reviewer.</li>
+        <li>After 4 more business hours, it goes to the manager.</li>
+        <li>
+          An item expires after {tenant.quarantineExpiryBusinessHours} business hours. The tenant
+          policy then applies its terminal decision: {terminalDecision()}.
+        </li>
+        <li>
+          Scores come from the scoring classifier <StubLabel what="Classifier" />, not from a real
+          model.
+        </li>
+      </ul>
+    </Card>
+  );
+}
+
 const levelOf = (item: QuarantineItem) => escalationFor(item).level;
 
-function buildColumns(open: (item: QuarantineItem) => void): Column<QuarantineItem>[] {
+function buildColumns(
+  open: (item: QuarantineItem) => void,
+  decidedIds: ReadonlySet<string>,
+): Column<QuarantineItem>[] {
   return [
     {
       key: 'id',
@@ -149,7 +180,7 @@ function buildColumns(open: (item: QuarantineItem) => void): Column<QuarantineIt
             open(r);
           }}
           aria-label={`Open ${r.id}`}
-          className="font-mono text-sm font-medium text-accent-700 underline-offset-2 hover:underline"
+          className="inline-block font-mono text-sm leading-5 font-medium whitespace-nowrap text-accent-700 underline-offset-2 hover:underline"
         >
           {r.id}
         </button>
@@ -170,20 +201,13 @@ function buildColumns(open: (item: QuarantineItem) => void): Column<QuarantineIt
       render: (r) => <StatusChip status={r.band} />,
     },
     {
-      key: 'age',
-      header: 'Age',
-      sortValue: (r) => -Date.parse(r.receivedAt),
-      className: 'whitespace-nowrap',
-      render: (r) => fmtAge(r.receivedAt),
-    },
-    {
       key: 'escalation',
       header: 'Escalation',
       sortValue: (r) => escalationFor(r).businessMinutes,
       render: (r) => (
         <div className="flex flex-col items-start gap-1">
           <StatusChip status={levelOf(r)} />
-          <EscalationInfo item={r} />
+          <EscalationInfo item={r} compact />
         </div>
       ),
     },
@@ -191,6 +215,23 @@ function buildColumns(open: (item: QuarantineItem) => void): Column<QuarantineIt
       key: 'decision',
       header: 'Decision',
       render: (r) => <DecisionChip item={r} />,
+    },
+    {
+      key: 'actions',
+      header: 'Action',
+      render: (r) =>
+        decidedIds.has(r.id) || levelOf(r) === 'expired' ? null : (
+          <Button
+            variant="secondary"
+            onClick={(e) => {
+              e.stopPropagation();
+              open(r);
+            }}
+            aria-label={`Decide ${r.id}`}
+          >
+            Decide
+          </Button>
+        ),
     },
   ];
 }
@@ -296,43 +337,46 @@ function ItemDetail({ item }: { item: QuarantineItem }) {
 export default function QuarantineScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = quarantine.find((q) => q.id === selectedId) ?? null;
+  const decisions = useSession((s) => s.quarantineDecisions);
+  const decidedIds = new Set(Object.keys(decisions));
+  const summary = quarantineSummary(decidedIds);
 
   return (
-    <Page
-      title="Quarantine queue"
-      demo
-      description="Items held back for a human decision. Each needs a written justification before it can be approved or rejected."
-    >
-      <Card title="How escalation works">
-        <ul className="list-disc space-y-1 pl-5 text-sm text-slate-700">
-          <li>
-            Time counts only in business hours: 09:00–17:00, Monday to Friday, in the tenant time
-            zone ({tenant.timeZone}).
-          </li>
-          <li>
-            After 4 business hours without a decision, the item goes to the secondary reviewer.
-          </li>
-          <li>After 4 more business hours, it goes to the manager.</li>
-          <li>
-            An item expires after {tenant.quarantineExpiryBusinessHours} business hours. The tenant
-            policy then applies its terminal decision: {terminalDecision()}.
-          </li>
-          <li>
-            Scores come from the scoring classifier <StubLabel what="Classifier" />, not from a real
-            model.
-          </li>
-        </ul>
-      </Card>
-      <ClassifierCard />
+    <Page title="Quarantine queue" demo>
+      <div className="grid grid-cols-3 gap-3">
+        <Stat label="Pending" value={summary.pending} />
+        <Stat
+          label="About to escalate"
+          value={summary.aboutToEscalate}
+          tone={summary.aboutToEscalate > 0 ? 'warning' : 'default'}
+          hint={`Next level within ${ABOUT_TO_ESCALATE_HOURS} business hour`}
+        />
+        <Stat label="Expired" value={summary.expired} />
+      </div>
+      <p className="text-sm text-slate-700">
+        Each pending item needs a written justification before it can be approved or rejected.
+      </p>
       <DataTable
         label="quarantine items"
         rows={quarantine}
-        columns={buildColumns((r) => setSelectedId(r.id))}
+        columns={buildColumns((r) => setSelectedId(r.id), decidedIds)}
         facets={facets}
         rowKey={(r) => r.id}
         searchText={(r) => `${r.id} ${r.summary} ${r.band} ${levelOf(r)}`}
         onRowClick={(r) => setSelectedId(r.id)}
       />
+      <details
+        className="group rounded-lg border border-slate-200 bg-white"
+        data-testid="how-it-works"
+      >
+        <summary className="cursor-pointer px-4 py-2.5 text-sm font-semibold text-slate-900">
+          How it works
+        </summary>
+        <div className="flex flex-col gap-4 border-t border-slate-200 p-4">
+          <EscalationExplanation />
+          <ClassifierCard />
+        </div>
+      </details>
       <Drawer
         open={selected !== null}
         title={selected ? `Quarantine item ${selected.id}` : 'Quarantine item'}

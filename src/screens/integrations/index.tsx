@@ -143,7 +143,9 @@ function AvailableGrid({
             <IconTile kind={i.kind} />
             <div className="min-w-0">
               <h2 className="font-medium text-slate-900">{i.name}</h2>
-              <p className="text-xs text-slate-600">{INTEGRATION_KIND_LABEL[i.kind]}</p>
+              {INTEGRATION_KIND_LABEL[i.kind].toLowerCase() !== i.name.toLowerCase() && (
+                <p className="text-xs text-slate-600">{INTEGRATION_KIND_LABEL[i.kind]}</p>
+              )}
             </div>
           </div>
           <CapabilityTags name={i.name} capabilities={i.capabilities} />
