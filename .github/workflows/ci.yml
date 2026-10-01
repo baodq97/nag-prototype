@@ -15,5 +15,14 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24.21.0
+          cache: npm
+      # The browser install needs the pinned Playwright from the lockfile.
+      - name: Install Playwright browser
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
       - name: Run checks
         run: bash scripts/ci.sh
