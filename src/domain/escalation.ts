@@ -7,6 +7,9 @@ const HOUR_MS = 3_600_000;
 export const SECONDARY_AFTER_HOURS = 4;
 export const MANAGER_AFTER_HOURS = 8;
 
+/** An item is about to escalate when its next step is at most this many business hours away. */
+export const ABOUT_TO_ESCALATE_HOURS = 1;
+
 type Hours = Pick<Tenant, 'timeZone' | 'businessHours'>;
 
 function isBusinessTime(ms: number, tenant: Hours): boolean {
@@ -69,4 +72,10 @@ export function escalationOf(receivedAt: string, now: string, tenant: Tenant): E
     }
   }
   return { level: 'expired', businessMinutes };
+}
+
+/** Whether the next escalation step falls within `ABOUT_TO_ESCALATE_HOURS` business hours. */
+export function isAboutToEscalate(escalation: Escalation, now: string, tenant: Hours): boolean {
+  if (!escalation.nextAt) return false;
+  return businessMinutesBetween(now, escalation.nextAt, tenant) <= ABOUT_TO_ESCALATE_HOURS * 60;
 }

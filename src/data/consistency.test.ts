@@ -8,7 +8,7 @@ import { appliesTo, coverageStatus } from '../domain/aiact';
 import { classify } from '../domain/classification';
 import { erasureSummary } from '../domain/erasure';
 import { runSummary } from '../domain/ledger-ops';
-import { daysUntil } from '../domain/time';
+import { daysUntil, localParts } from '../domain/time';
 import type { RangeVerification } from '../domain/types';
 import {
   ERASURE_SUBJECTS,
@@ -284,6 +284,32 @@ describe('article map and AI systems', () => {
     }
     expect(rowsForSystem('sys-unknown')).toEqual([]);
     expect(getSystem('sys-credit')?.endpoint).toBe('/v1/credit-score');
+  });
+});
+
+describe('test dates', () => {
+  const day = (instant: string) => localParts(instant, tenant.timeZone).date;
+
+  it('starts every failure before the due date and no later than yesterday', () => {
+    const yesterday = day(new Date(Date.parse(NOW) - 86_400_000).toISOString());
+    const violations = tests
+      .filter((t) => t.failingSince)
+      .filter((t) => !(day(t.failingSince!) < t.dueDate && day(t.failingSince!) <= yesterday))
+      .map((t) => `${t.id}: ${day(t.failingSince!)} vs due ${t.dueDate}`);
+    expect(violations).toEqual([]);
+    expect(tests.filter((t) => t.failingSince).length).toBeGreaterThan(13);
+  });
+
+  it('fixes a passing test after it started failing', () => {
+    for (const t of tests.filter((x) => x.fixedAt)) {
+      expect(t.failingSince! < t.fixedAt!, t.id).toBe(true);
+    }
+  });
+
+  it('shows the prompt-injection test failing since before its fix-by date', () => {
+    const t = tests.find((x) => x.name === 'Prompt-injection probes run weekly')!;
+    expect(t.status).toBe('failing');
+    expect(day(t.failingSince!) < t.dueDate).toBe(true);
   });
 });
 

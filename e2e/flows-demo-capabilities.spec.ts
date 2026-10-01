@@ -89,6 +89,7 @@ test('the classifier, ledger operations and package checklist cards show their f
   const errors = collectErrors(page);
 
   await page.goto('/quarantine');
+  await page.getByText('How it works').click();
   await expect(page.getByRole('heading', { name: 'Classifier' })).toBeVisible();
   await expect(page.getByText('0.60 to < 0.85')).toBeVisible();
   await page.getByRole('button', { name: 'Open Q-1044' }).click();

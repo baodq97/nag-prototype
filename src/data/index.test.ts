@@ -4,6 +4,7 @@ import {
   articleRows,
   controls,
   erasureRequests,
+  escalationFor,
   getArticleRow,
   getControl,
   getDocument,
@@ -12,6 +13,10 @@ import {
   getSystem,
   getTest,
   itemRefs,
+  packageElements,
+  packageReadiness,
+  quarantine,
+  quarantineSummary,
   searchIndex,
 } from '.';
 
@@ -63,6 +68,52 @@ describe('erasure requests', () => {
     expect(session[0]!.completedAt).toBe('2026-09-30T08:05:00.000Z');
     expect(session[0]!.clock).toBeUndefined();
     expect(session[1]!.clock?.text).toBe('due in 5 working days');
+  });
+});
+
+describe('conformity package readiness', () => {
+  it('adds up across the checklist, with "yours" a part of missing', () => {
+    const r = packageReadiness();
+    const all = packageElements().flatMap((g) => g.elements);
+    expect(r.total).toBe(all.length);
+    expect(r.complete + r.missing).toBe(r.total);
+    expect(r.missingYours).toBeLessThanOrEqual(r.missing);
+    expect(r.missingYours).toBe(
+      all.filter((e) => e.state === 'missing' && e.source === 'customer').length,
+    );
+  });
+
+  it('lists missing elements first in each group', () => {
+    for (const g of packageElements()) {
+      const first = g.elements.findIndex((e) => e.state === 'complete');
+      if (first >= 0)
+        expect(g.elements.slice(first).every((e) => e.state === 'complete')).toBe(true);
+    }
+  });
+
+  it('links every missing element to a page that shows it', () => {
+    const missing = packageElements()
+      .flatMap((g) => g.elements)
+      .filter((e) => e.state === 'missing');
+    const broken = missing.filter((e) => !e.href || !resolves(e.href)).map((e) => e.id);
+    expect(broken).toEqual([]);
+  });
+});
+
+describe('quarantine summary', () => {
+  it('splits the queue into pending, about to escalate and expired', () => {
+    const s = quarantineSummary();
+    const levels = quarantine.map((q) => escalationFor(q).level);
+    expect(s.pending + s.expired).toBe(quarantine.length);
+    expect(s.expired).toBe(levels.filter((l) => l === 'expired').length);
+    expect(s.aboutToEscalate).toBeLessThanOrEqual(s.pending);
+  });
+
+  it('drops decided items from pending and about to escalate', () => {
+    const open = quarantine.filter((q) => escalationFor(q).level !== 'expired');
+    const s = quarantineSummary(open.map((q) => q.id));
+    expect([s.pending, s.aboutToEscalate]).toEqual([0, 0]);
+    expect(s.expired).toBe(quarantineSummary().expired);
   });
 });
 

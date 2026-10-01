@@ -103,18 +103,23 @@ const pathNote = (d: ApplicationDate, all: ApplicationDate[]) =>
 function DateLine({ dates }: { dates: ApplicationDate[] }) {
   if (dates.length === 0) return <span className="text-slate-600">–</span>;
   return (
-    <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+    <span className="flex flex-col items-start gap-y-1">
       {dates.map((d) => (
-        <span key={`${d.date}-${d.path ?? ''}`} className="whitespace-nowrap">
-          <span className="tabular-nums">{fmtDate(d.date)}</span>
-          {pathNote(d, dates)}
+        <span
+          key={`${d.date}-${d.path ?? ''}`}
+          data-testid="date-line"
+          className="flex max-w-full flex-col items-start gap-0.5"
+        >
+          <span className="whitespace-nowrap">
+            <span className="tabular-nums">{fmtDate(d.date)}</span>
+            {pathNote(d, dates)}
+          </span>
           {appliesNow(d.date) && (
-            <>
-              {' '}
+            <span data-testid="applies-now" className="whitespace-nowrap">
               <StatusChip variant="success" description="">
                 Applies now
               </StatusChip>
-            </>
+            </span>
           )}
         </span>
       ))}
@@ -367,10 +372,7 @@ export default function Screen() {
   const filtering = Object.values(filters).some(Boolean);
 
   return (
-    <Page
-      title="Article coverage"
-      description="For each EU AI Act article: who owes the duty, what NAG does, what stays with you, and the tests and controls behind it. This is orientation to support compliance readiness, not legal advice."
-    >
+    <Page title="Article coverage">
       {system && (
         <p
           className="flex flex-wrap items-center gap-2 rounded-md bg-accent-50 px-3 py-2 text-sm text-accent-900"
@@ -397,6 +399,9 @@ export default function Screen() {
         active={filters.status ?? null}
         onSelect={(key) => setParam('status', key ?? '')}
       />
+      <p className="text-xs text-slate-600">
+        This is orientation to support compliance readiness, not legal advice.
+      </p>
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-2">
           <label className="flex items-center gap-1 text-sm text-slate-700">

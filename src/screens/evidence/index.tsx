@@ -98,16 +98,21 @@ const facets: Facet<EvidenceRecord>[] = [
 function Pair({
   label,
   className,
+  identifier = false,
   children,
 }: {
   label: ReactNode;
   className?: string;
+  /** Identifiers (hashes, roots, tokens) may break anywhere; prose wraps at spaces only. */
+  identifier?: boolean;
   children: ReactNode;
 }) {
   return (
     <div className={className}>
       <dt className="text-xs font-medium text-slate-600">{label}</dt>
-      <dd className="mt-0.5 text-sm break-all text-slate-900">{children}</dd>
+      <dd className={`mt-0.5 text-sm text-slate-900 ${identifier ? 'break-all' : ''}`}>
+        {children}
+      </dd>
     </div>
   );
 }
@@ -132,23 +137,25 @@ function RecordDetail({ record }: { record: EvidenceRecord }) {
       <Layer title="Event type">
         <Pair label="Label">{eventType(record.code).label}</Pair>
         <Pair label="Full name">{getCode(record.code).label}</Pair>
-        <Pair label="Code ID">
+        <Pair identifier label="Code ID">
           <span className="font-mono text-xs">{record.code}</span>
         </Pair>
         <Pair label="Kind">{getCode(record.code).kind === 'decision' ? 'Decision' : 'Error'}</Pair>
       </Layer>
       <Layer title="L1 · Hash chain">
-        <Pair label="Previous hash">
+        <Pair identifier label="Previous hash">
           <span className="font-mono text-xs">{record.prevHash}</span>
         </Pair>
-        <Pair label="Own hash">
+        <Pair identifier label="Own hash">
           <span className="font-mono text-xs">{record.hash}</span>
         </Pair>
       </Layer>
       <Layer title="L2 · Merkle batch">
         <Pair label="Leaf index">{record.leafIndex}</Pair>
-        <Pair label="Batch">{record.batchId}</Pair>
-        <Pair label="Merkle root">
+        <Pair identifier label="Batch">
+          {record.batchId}
+        </Pair>
+        <Pair identifier label="Merkle root">
           <span className="font-mono text-xs">{record.merkleRoot}</span>
         </Pair>
       </Layer>
@@ -160,7 +167,7 @@ function RecordDetail({ record }: { record: EvidenceRecord }) {
         }
       >
         <Pair label="Provider">{record.anchor.provider}</Pair>
-        <Pair label="Token">
+        <Pair identifier label="Token">
           <span className="font-mono text-xs">{record.anchor.token}</span>
         </Pair>
         <Pair label="Anchored at">{fmtDateTime(record.anchor.anchoredAt)}</Pair>

@@ -1,4 +1,4 @@
-import { Download } from 'lucide-react';
+import { Cpu, Download, FileText, type LucideIcon, UserPen } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import {
@@ -6,6 +6,7 @@ import {
   deployment,
   evidence,
   packageElements,
+  packageReadiness,
   packageSections,
   tests,
 } from '../../data';
@@ -40,10 +41,34 @@ const SOURCE_LABELS: Record<SectionSource, string> = {
   customer: 'Customer-authored',
 };
 
-const SOURCE_VARIANT = { runtime: 'info', template: 'neutral', customer: 'warning' } as const;
+// Source chips are neutral and distinct from state chips: no status colour, no warning icon, and
+// each source has its own outline, tint and icon.
+const SOURCE_STYLE: Record<SectionSource, { icon: LucideIcon; classes: string }> = {
+  runtime: {
+    icon: Cpu,
+    classes: 'border border-solid border-slate-300 bg-slate-100 text-slate-800',
+  },
+  customer: {
+    icon: UserPen,
+    classes: 'border border-solid border-slate-500 bg-white text-slate-900',
+  },
+  template: {
+    icon: FileText,
+    classes: 'border border-dashed border-slate-400 bg-slate-50 text-slate-700',
+  },
+};
 
 function SourceChip({ source }: { source: SectionSource }) {
-  return <StatusChip variant={SOURCE_VARIANT[source]}>{SOURCE_LABELS[source]}</StatusChip>;
+  const { icon: Icon, classes } = SOURCE_STYLE[source];
+  return (
+    <span
+      data-source={source}
+      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium whitespace-nowrap ${classes}`}
+    >
+      <Icon size={12} aria-hidden className="shrink-0" />
+      {SOURCE_LABELS[source]}
+    </span>
+  );
 }
 
 const GROUP_TITLES: Record<DeclarationGroup, string> = {
@@ -87,12 +112,12 @@ export default function Screen() {
   const [route, setRoute] = useState<AssessmentRoute>(scenario.route);
   const [exporting, setExporting] = useState(false);
   const sections = packageSections.filter((s) => s.routes.includes(route));
+  const ready = packageReadiness();
 
   return (
     <Page
       title="Conformity packages"
       demo
-      description="Build the technical file for the route you choose. Each section shows where its content comes from. The package supports compliance readiness; the provider stays responsible for the assessment."
       actions={
         <Button variant="primary" onClick={() => setExporting(true)}>
           <Download size={14} aria-hidden />
@@ -100,6 +125,17 @@ export default function Screen() {
         </Button>
       }
     >
+      <div>
+        <p className="text-sm font-medium text-slate-900" data-testid="package-readiness">
+          {ready.complete} of {ready.total} items complete, {ready.missing} missing,{' '}
+          {ready.missingYours} of them yours
+        </p>
+        <p className="text-xs text-slate-600">
+          The package supports compliance readiness; the provider stays responsible for the
+          assessment.
+        </p>
+      </div>
+
       <p className="text-sm text-slate-700" data-testid="package-deployment">
         <span className="font-medium text-slate-900">{label}</span>
         {' · '}
@@ -118,7 +154,17 @@ export default function Screen() {
             <ul className="divide-y divide-slate-100">
               {g.elements.map((e) => (
                 <li key={e.id} className="flex items-start justify-between gap-2 py-2">
-                  <span className="min-w-0 text-sm text-slate-800">{e.title}</span>
+                  {e.state === 'missing' && e.href ? (
+                    <Link
+                      to={e.href}
+                      data-testid="missing-item"
+                      className="min-w-0 text-sm font-medium text-accent-700 hover:underline"
+                    >
+                      {e.title}
+                    </Link>
+                  ) : (
+                    <span className="min-w-0 text-sm text-slate-800">{e.title}</span>
+                  )}
                   <span className="flex shrink-0 flex-wrap justify-end gap-1">
                     <SourceChip source={e.source} />
                     <StatusChip variant={e.state === 'complete' ? 'success' : 'warning'}>

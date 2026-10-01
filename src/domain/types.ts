@@ -366,6 +366,8 @@ export interface DeclarationElement {
   title: string;
   source: SectionSource;
   state: 'complete' | 'missing';
+  /** Route of the screen where a missing element is maintained. */
+  href?: string;
 }
 
 /** How deep NAG is wired into the tenant's AI applications. */

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { addBusinessMinutes, businessMinutesBetween, escalationOf } from './escalation';
+import {
+  ABOUT_TO_ESCALATE_HOURS,
+  addBusinessMinutes,
+  businessMinutesBetween,
+  escalationOf,
+  isAboutToEscalate,
+} from './escalation';
 import type { Tenant } from './types';
 
 const tenant: Tenant = {
@@ -85,5 +91,26 @@ describe('escalationOf', () => {
     const e = escalationOf(FRIDAY_1600, '2026-04-06T10:00:00.000Z', tenant);
     expect(e.level).toBe('expired');
     expect(e.nextAt).toBeUndefined();
+  });
+});
+
+describe('isAboutToEscalate', () => {
+  it('uses a threshold of 1 business hour', () => {
+    expect(ABOUT_TO_ESCALATE_HOURS).toBe(1);
+  });
+
+  it('flags an item whose next step is at most 1 business hour away', () => {
+    // Received Friday 16:00; the secondary step is due Monday 12:00 local.
+    const at = (now: string) =>
+      isAboutToEscalate(escalationOf(FRIDAY_1600, now, tenant), now, tenant);
+    expect(at('2026-03-30T08:59:00.000Z')).toBe(false); // Monday 10:59, 61 minutes left
+    expect(at('2026-03-30T09:00:00.000Z')).toBe(true); // Monday 11:00, 60 minutes left
+    // Friday 16:30: 3.5 business hours before the step.
+    expect(at('2026-03-27T15:30:00.000Z')).toBe(false);
+  });
+
+  it('never flags an expired item', () => {
+    const now = '2026-04-06T10:00:00.000Z';
+    expect(isAboutToEscalate(escalationOf(FRIDAY_1600, now, tenant), now, tenant)).toBe(false);
   });
 });

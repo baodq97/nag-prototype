@@ -68,11 +68,7 @@ const figures: {
 export default function Screen() {
   const { byFramework, trend } = summary;
   return (
-    <Page
-      title="Posture overview"
-      demo
-      description="Where the tests and controls stand today, and what needs attention first. It supports compliance readiness and does not replace your own assessment."
-    >
+    <Page title="Posture overview" demo>
       <Link
         to="/onboarding"
         className="w-fit rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600"
@@ -92,6 +88,9 @@ export default function Screen() {
           </Link>
         ))}
       </section>
+      <p className="-mt-2 text-xs text-slate-600">
+        This view supports compliance readiness and does not replace your own assessment.
+      </p>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card title="Tests passing, last 30 days" className="lg:col-span-2">
