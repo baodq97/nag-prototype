@@ -25,7 +25,15 @@ it('finds by ID and honours the limit', () => {
 
 it('finds every kind of object in the seeded index', () => {
   const kinds = new Set(searchIndex.map((s) => s.kind));
-  expect([...kinds].sort()).toEqual(['article', 'control', 'document', 'policy', 'risk', 'test']);
+  expect([...kinds].sort()).toEqual([
+    'article',
+    'control',
+    'document',
+    'policy',
+    'risk',
+    'system',
+    'test',
+  ]);
   expect(search(searchIndex, 'kill switch')[0]?.label).toBe('Kill switch activation requires MFA');
   expect(search(searchIndex, 'Art. 14')[0]?.id).toBe('aia-14');
 });

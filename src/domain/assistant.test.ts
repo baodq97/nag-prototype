@@ -25,8 +25,8 @@ describe('assistant (stub answer engine)', () => {
     expect(answerQuestion('Which controls fail for Art. 5?', ctx).text).toBe(
       'No control mapped to Art. 5 is failing.',
     );
-    expect(answerQuestion('Why are controls failing for Article 99?', ctx).text).toBe(
-      'Art. 99 is not in the demo data.',
+    expect(answerQuestion('Why are controls failing for Article 101?', ctx).text).toBe(
+      'Art. 101 is not in the demo data.',
     );
   });
 

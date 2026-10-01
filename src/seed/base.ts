@@ -1,4 +1,5 @@
 import type { FrameworkItem, Integration, Person, Tenant } from '../domain/types';
+import { articleMap } from './articles';
 
 /** The fixed "now" of the demo: Wednesday 30 September 2026, 10:00 in Berlin. */
 export const NOW = '2026-09-30T08:00:00.000Z';
@@ -26,13 +27,6 @@ export const people: Person[] = [
 /** The signed-in demo user. */
 export const currentUserId = 'p-lena';
 
-const aia = (n: number, title: string): FrameworkItem => ({
-  id: `aia-${n}`,
-  framework: 'eu-ai-act',
-  ref: `Art. ${n}`,
-  title,
-});
-
 const iso = (ref: string, title: string): FrameworkItem => ({
   id: `iso-${ref.toLowerCase()}`,
   framework: 'iso-42001',
@@ -40,23 +34,15 @@ const iso = (ref: string, title: string): FrameworkItem => ({
   title,
 });
 
-// Titles are short descriptions in our own words.
+// Titles are short descriptions in our own words. Every row of the EU AI Act article map is
+// a framework item, so controls, tests and the posture by framework can point at it.
 export const frameworkItems: FrameworkItem[] = [
-  aia(5, 'Practices that are not allowed'),
-  aia(9, 'Managing risk across the lifecycle'),
-  aia(10, 'Quality and governance of data'),
-  aia(11, 'Technical documentation'),
-  aia(12, 'Automatic logging of events'),
-  aia(13, 'Information for deployers'),
-  aia(14, 'People overseeing the system'),
-  aia(15, 'Accuracy, robustness and security'),
-  aia(17, 'Quality management system'),
-  aia(18, 'Keeping documentation'),
-  aia(26, 'Duties of deployers'),
-  aia(43, 'Assessing conformity'),
-  aia(47, 'Declaring conformity'),
-  aia(72, 'Monitoring after release'),
-  aia(73, 'Reporting serious incidents'),
+  ...articleMap.map((a) => ({
+    id: a.id,
+    framework: 'eu-ai-act' as const,
+    ref: a.article,
+    title: a.title,
+  })),
   iso('4.1', 'Understanding the organisation'),
   iso('5.2', 'Setting an AI policy'),
   iso('6.1.2', 'Assessing AI risks'),

@@ -2,8 +2,9 @@
 
 import { describe, expect, it } from 'vitest';
 import { depths, isDepthAllowed } from '../domain/lineage';
+import { articleMap } from './articles';
 import { frameworkItems, integrations } from './base';
-import { controls, coverage, documents, policies, tests } from './catalogue';
+import { controls, documents, policies, tests } from './catalogue';
 import { audits, packageSections, qmsTemplates, risks } from './governance';
 import {
   ERASURE_SUBJECTS,
@@ -13,9 +14,11 @@ import {
   lineage,
   pipelineStages,
   policyBundles,
+  privacyEndpoints,
   quarantine,
   traces,
 } from './runtime';
+import { aiSystems } from './systems';
 
 const itemIds = new Set(frameworkItems.map((i) => i.id));
 
@@ -47,23 +50,130 @@ describe('catalogue', () => {
     }
   });
 
-  it('covers the nine articles with Art. 11 partial', () => {
-    expect(coverage.map((c) => c.article)).toEqual([
-      'Art. 5',
-      'Art. 11',
-      'Art. 12',
-      'Art. 13',
-      'Art. 14',
-      'Art. 18',
-      'Art. 26',
-      'Art. 43',
-      'Art. 47',
-    ]);
-    expect(coverage.find((c) => c.article === 'Art. 11')?.status).toBe('partial');
-  });
-
   it('flags at least two documents', () => {
     expect(documents.filter((d) => d.assistantFlag).length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+const paragraphs = (n: number, count: number) =>
+  Array.from({ length: count }, (_, i) => `aia-${n}-${i + 1}`);
+
+const ARTICLE_IDS = [
+  ...['aia-6-1', 'aia-6-2', 'aia-6-3', 'aia-6-4', 'aia-7'],
+  ...[8, 9, 10, 11, 12, 13, 14, 15].map((n) => `aia-${n}`),
+  ...[16, 17, 18, 19, 20, 21, 22].map((n) => `aia-${n}`),
+  ...['aia-40', 'aia-41', 'aia-42', 'aia-43', 'aia-43-4', 'aia-47', 'aia-48', 'aia-49'],
+  ...paragraphs(26, 11),
+  'aia-27',
+  'aia-86',
+  ...[23, 24, 25, 72, 73, 80].map((n) => `aia-${n}`),
+  'aia-4',
+  'aia-99',
+  ...paragraphs(50, 7),
+  'aia-5',
+];
+
+const byRole = (role: string) =>
+  articleMap
+    .filter((r) => r.nagRole === role)
+    .map((r) => r.id)
+    .sort();
+
+describe('article map', () => {
+  it('has exactly one row for each of the 57 ids', () => {
+    expect(ARTICLE_IDS).toHaveLength(57);
+    expect(articleMap.map((r) => r.id).sort()).toEqual([...ARTICLE_IDS].sort());
+    expect(articleMap.find((r) => r.id === 'aia-49')?.article).toBe('Art. 49 and 71');
+  });
+
+  it('fills every field and stores no status', () => {
+    for (const r of articleMap) {
+      for (const text of [r.title, r.nagDoes, r.customerKeeps]) expect(text, r.id).not.toBe('');
+      expect(r.riskTiers.length, r.id).toBeGreaterThan(0);
+      expect(r.dates.length, r.id).toBeGreaterThan(0);
+      expect(Object.keys(r), r.id).not.toContain('status');
+      for (const d of [r.provider, r.deployer]) {
+        if (d.kind === 'only-if') expect(d.condition, r.id).not.toBe('');
+      }
+    }
+  });
+
+  it('names exactly three rows outside NAG scope, each with a reason and no link', () => {
+    expect(byRole('outside')).toEqual(['aia-22', 'aia-26-7', 'aia-48']);
+    const linked = new Set([...controls, ...tests].flatMap((x) => x.frameworkItemIds));
+    for (const r of articleMap) {
+      expect(Boolean(r.outsideReason), r.id).toBe(r.nagRole === 'outside');
+      if (r.nagRole === 'outside') expect(linked.has(r.id), r.id).toBe(false);
+    }
+  });
+
+  it('makes NAG the control on exactly the nine continuous-evidence rows', () => {
+    expect(byRole('control')).toEqual(
+      [
+        'aia-12',
+        'aia-14',
+        'aia-19',
+        'aia-20',
+        'aia-26-5',
+        'aia-26-6',
+        'aia-72',
+        'aia-73',
+        'aia-86',
+      ].sort(),
+    );
+  });
+
+  it('follows the application calendar', () => {
+    const dates = (id: string) => articleMap.find((r) => r.id === id)!.dates.map((d) => d.date);
+    expect(dates('aia-4')).toEqual(['2025-02-02']);
+    expect(dates('aia-5')).toEqual(['2025-02-02']);
+    expect(dates('aia-99')).toEqual(['2025-08-02']);
+    expect(dates('aia-50-1')).toEqual(['2026-08-02']);
+    expect(dates('aia-50-2')).toEqual(['2026-08-02', '2026-12-02']);
+    expect(dates('aia-6-1')).toEqual(['2028-08-02']);
+    expect(dates('aia-6-2')).toEqual(['2027-12-02']);
+    for (const r of articleMap.filter((x) => 'ABCDEF'.includes(x.group))) {
+      if (r.id === 'aia-6-1' || r.id === 'aia-6-2') continue;
+      expect(r.dates, r.id).toEqual([
+        { date: '2027-12-02', path: 'annex-iii' },
+        { date: '2028-08-02', path: 'annex-i' },
+      ]);
+    }
+  });
+
+  it('gives every row an own-words title on its framework item', () => {
+    for (const r of articleMap) {
+      expect(frameworkItems.find((i) => i.id === r.id)?.title, r.id).toBe(r.title);
+    }
+  });
+});
+
+describe('AI systems', () => {
+  it('has three systems that store answers but no risk tier', () => {
+    expect(aiSystems.map((s) => s.id)).toEqual(['sys-credit', 'sys-support', 'sys-router']);
+    for (const s of aiSystems) {
+      expect(Object.keys(s), s.id).not.toContain('riskTier');
+      expect(Object.keys(s.answers), s.id).not.toContain('riskTier');
+    }
+  });
+
+  it('reuses gateway endpoint ids for discovered systems only', () => {
+    const endpointIds = new Set(privacyEndpoints.map((e) => e.id));
+    for (const s of aiSystems) {
+      expect(s.discovery === 'gateway', s.id).toBe(s.endpointId !== undefined);
+      if (s.endpointId) expect(endpointIds.has(s.endpointId), s.id).toBe(true);
+    }
+  });
+
+  it('carries one drift alert on the support agent and one modification flag on credit', () => {
+    const signals = aiSystems.flatMap((s) => s.signals.map((x) => [s.id, x.kind]));
+    expect(signals).toEqual([
+      ['sys-credit', 'modification'],
+      ['sys-support', 'drift'],
+    ]);
+    const drift = aiSystems[1]!.signals[0]!;
+    expect(drift.text).toBe('Observed requests touching credit decisions, reassess');
+    expect(quarantine.some((q) => q.summary === drift.quarantineSummary)).toBe(true);
   });
 });
 

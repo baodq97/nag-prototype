@@ -1,8 +1,10 @@
 // Read-only selectors over the seed. Screens import data only from here; a real backend
 // would plug in behind these functions.
 
+import { appliesTo, coverageStatus } from '../domain/aiact';
 import type { AssistantContext } from '../domain/assistant';
 import { type DerivedCategory, deriveTrust } from '../domain/claims';
+import { classify } from '../domain/classification';
 import { erasureLayers } from '../domain/erasure';
 import { escalationOf } from '../domain/escalation';
 import { blastRadius, breachTotals, stageHealth } from '../domain/health';
@@ -17,8 +19,10 @@ import {
 import { documentReviewState, policyRenewalState } from '../domain/review';
 import { verifyRanges } from '../domain/verification';
 import type {
+  AiSystemView,
   ComplianceDocument,
   Control,
+  CoverageRow,
   FrameworkId,
   FrameworkItem,
   Policy,
@@ -36,7 +40,8 @@ import {
   tenant,
   trustUpdatedAt,
 } from '../seed/base';
-import { controls, coverage, documents, policies, tests } from '../seed/catalogue';
+import { articleMap } from '../seed/articles';
+import { controls, documents, policies, tests } from '../seed/catalogue';
 import {
   audits,
   packageSections,
@@ -58,13 +63,13 @@ import {
   quarantine,
   traces,
 } from '../seed/runtime';
+import { aiSystems as seededSystems } from '../seed/systems';
 
 export {
   ERASURE_SUBJECTS,
   NOW,
   audits,
   controls,
-  coverage,
   currentUserId,
   defaultFallbackMode,
   detectionQuality,
@@ -216,13 +221,54 @@ export function assistantContext(): AssistantContext {
   };
 }
 
-const coverageRows = new Set(coverage.map((c) => c.frameworkItemId));
+/** Ids of the controls and tests that map to a framework item. */
+const linkedTo = (itemId: string) => ({
+  controlIds: controls.filter((c) => c.frameworkItemIds.includes(itemId)).map((c) => c.id),
+  testIds: tests.filter((t) => t.frameworkItemIds.includes(itemId)).map((t) => t.id),
+});
 
-/** Articles with a coverage row open on it; every other item filters the controls table. */
+const rows: CoverageRow[] = articleMap.map((row) => {
+  const links = linkedTo(row.id);
+  const controlsOk = links.controlIds.map((id) => controlStatus(controlsById.get(id)!).ok);
+  return {
+    ...row,
+    ...links,
+    status: coverageStatus(row.nagRole, controlsOk, links.testIds.length),
+  };
+});
+const rowsById = byId(rows);
+
+/** The EU AI Act article map with its linked controls and tests and the derived status. */
+export function articleRows(): CoverageRow[] {
+  return rows;
+}
+
+export const getArticleRow = (id: string) => rowsById.get(id);
+
+const systems: AiSystemView[] = seededSystems.map((s) => ({
+  ...s,
+  endpoint: privacyEndpoints.find((e) => e.id === s.endpointId)?.path,
+  classification: classify(s.answers, s.roleAnswers),
+}));
+
+/** The AI system inventory with the classification replayed from each system's answers. */
+export function aiSystems(): AiSystemView[] {
+  return systems;
+}
+
+export const getSystem = (id: string) => systems.find((s) => s.id === id);
+
+/** The article rows that apply to a system's risk tier and roles, in map order. */
+export function rowsForSystem(systemId: string): CoverageRow[] {
+  const system = getSystem(systemId);
+  return system ? rows.filter((r) => appliesTo(r, system.classification)) : [];
+}
+
+/** Articles with a row open on it; every other item filters the controls table. */
 const itemHref = (i: FrameworkItem) =>
-  coverageRows.has(i.id) ? `/coverage#${i.id}` : `/controls?q=${encodeURIComponent(i.ref)}`;
+  rowsById.has(i.id) ? `/coverage#${i.id}` : `/controls?q=${encodeURIComponent(i.ref)}`;
 
-/** Everything the command search can find: tests, controls, documents, policies, risks, articles. */
+/** Everything the command search can find: tests, controls, documents, policies, risks, articles, systems. */
 export const searchIndex: SearchEntry[] = [
   ...tests.map((t) => ({ kind: 'test' as const, id: t.id, label: t.name, href: `/tests/${t.id}` })),
   ...controls.map((c) => ({
@@ -254,5 +300,11 @@ export const searchIndex: SearchEntry[] = [
     id: i.id,
     label: `${i.ref} ${i.title}`,
     href: itemHref(i),
+  })),
+  ...systems.map((s) => ({
+    kind: 'system' as const,
+    id: s.id,
+    label: s.name,
+    href: `/ai-systems?open=${s.id}`,
   })),
 ];

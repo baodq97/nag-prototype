@@ -3,14 +3,18 @@
 
 import { describe, expect, it } from 'vitest';
 import { countStates, staleRecords } from '../screens/auditor/states';
+import { appliesTo, coverageStatus } from '../domain/aiact';
+import { classify } from '../domain/classification';
 import { erasureSummary } from '../domain/erasure';
 import { daysUntil } from '../domain/time';
 import {
   ERASURE_SUBJECTS,
   NOW,
+  aiSystems,
+  articleRows,
   audits,
   controlStatus,
-  coverage,
+  controls,
   documentReview,
   documents,
   erasureFor,
@@ -18,10 +22,13 @@ import {
   getControl,
   getDocument,
   getPolicy,
+  getSystem,
+  getTest,
   policies,
   policyRenewal,
   postureSummary,
   reviewCounts,
+  rowsForSystem,
   runtimeHealth,
   searchIndex,
   tenant,
@@ -141,6 +148,111 @@ describe('trust claims', () => {
   });
 });
 
+describe('article map and AI systems', () => {
+  const controlsOk = (ids: string[]) => ids.map((id) => controlStatus(getControl(id)!).ok);
+
+  it('derives every row status from the live controls and tests', () => {
+    for (const row of articleRows()) {
+      const expected = coverageStatus(row.nagRole, controlsOk(row.controlIds), row.testIds.length);
+      expect(row.status, row.id).toBe(expected);
+      const mapped = controls.filter((c) => c.frameworkItemIds.includes(row.id)).map((c) => c.id);
+      expect(row.controlIds, row.id).toEqual(mapped);
+      const mappedTests = tests.filter((t) => t.frameworkItemIds.includes(row.id)).map((t) => t.id);
+      expect(row.testIds, row.id).toEqual(mappedTests);
+    }
+  });
+
+  it('keeps the outside-scope and NAG-is-the-control sets', () => {
+    const ids = (role: string) =>
+      articleRows()
+        .filter((r) => r.nagRole === role)
+        .map((r) => r.id);
+    expect(ids('outside')).toEqual(['aia-22', 'aia-48', 'aia-26-7']);
+    for (const r of articleRows().filter((x) => x.nagRole === 'outside')) {
+      expect([r.controlIds, r.testIds, r.status], r.id).toEqual([[], [], 'outside']);
+    }
+    expect(ids('control').sort()).toEqual(
+      [
+        'aia-12',
+        'aia-14',
+        'aia-19',
+        'aia-20',
+        'aia-26-5',
+        'aia-26-6',
+        'aia-72',
+        'aia-73',
+        'aia-86',
+      ].sort(),
+    );
+    for (const r of articleRows().filter((x) => x.nagRole === 'control')) {
+      expect(r.controlIds.length, r.id).toBeGreaterThan(0);
+      expect(r.testIds.length, r.id).toBeGreaterThan(0);
+    }
+  });
+
+  it('links only controls and tests that exist', () => {
+    for (const row of articleRows()) {
+      for (const id of row.controlIds) expect(getControl(id), `${row.id}: ${id}`).toBeDefined();
+      for (const id of row.testIds) expect(getTest(id), `${row.id}: ${id}`).toBeDefined();
+    }
+  });
+
+  it('never shows a row as covered while a linked control fails', () => {
+    for (const row of articleRows()) {
+      if (controlsOk(row.controlIds).some((ok) => !ok)) {
+        expect(row.status, row.id).not.toBe('covered');
+      }
+    }
+    const humanReview = allEntries().find((e) => e.name === 'Human review of uncertain output');
+    expect(humanReview?.status).toBe('under-remediation');
+    expect(articleRows().find((r) => r.id === 'aia-14')?.status).toBe('needs-attention');
+  });
+
+  it('shows each system the risk tier and role its answers give', () => {
+    for (const s of aiSystems()) {
+      expect(s.classification, s.id).toEqual(classify(s.answers, s.roleAnswers));
+    }
+    const summary = aiSystems().map((s) => [
+      s.id,
+      s.classification.riskTier,
+      s.classification.roles,
+    ]);
+    expect(summary).toEqual([
+      ['sys-credit', 'high', ['provider', 'deployer']],
+      ['sys-support', 'transparency', ['provider', 'deployer']],
+      ['sys-router', 'minimal', ['deployer']],
+    ]);
+  });
+
+  it('lists for each system exactly the rows that apply to it', () => {
+    for (const s of aiSystems()) {
+      const expected = articleRows().filter((r) => appliesTo(r, s.classification));
+      expect(
+        rowsForSystem(s.id).map((r) => r.id),
+        s.id,
+      ).toEqual(expected.map((r) => r.id));
+    }
+    const ids = (id: string) => rowsForSystem(id).map((r) => r.id);
+    expect(ids('sys-router')).toContain('aia-4');
+    expect(ids('sys-support')).toContain('aia-50-1');
+    for (const id of [
+      'aia-12',
+      'aia-14',
+      'aia-19',
+      'aia-20',
+      'aia-26-5',
+      'aia-26-6',
+      'aia-72',
+      'aia-73',
+      'aia-86',
+    ]) {
+      expect(ids('sys-credit'), id).toContain(id);
+    }
+    expect(rowsForSystem('sys-unknown')).toEqual([]);
+    expect(getSystem('sys-credit')?.endpoint).toBe('/v1/credit-score');
+  });
+});
+
 describe('review state', () => {
   const daysLeft = (date: string) => daysUntil(date, NOW, tenant.timeZone);
 
@@ -194,8 +306,8 @@ describe('screen numbers', () => {
 
   it('points every coverage row at tests and controls that exist', () => {
     const testIds = new Set(tests.map((t) => t.id));
-    expect(coverage.length).toBeGreaterThan(0);
-    for (const row of coverage) {
+    expect(articleRows().length).toBeGreaterThan(0);
+    for (const row of articleRows()) {
       for (const id of row.testIds) expect(testIds.has(id), `${row.article}: ${id}`).toBe(true);
       for (const id of row.controlIds) {
         expect(getControl(id), `${row.article}: ${id}`).toBeDefined();

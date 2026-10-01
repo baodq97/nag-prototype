@@ -1,6 +1,5 @@
 import { addDays } from '../domain/time';
 import type {
-  ArticleCoverage,
   Comment,
   ComplianceDocument,
   ComplianceTest,
@@ -105,7 +104,7 @@ const TESTS: [string, string, string[], string][] = [
   [
     'Evidence records written for every AI request',
     'int-proxy',
-    ['aia-12', 'iso-a.6.2.8'],
+    ['aia-12', 'aia-86', 'iso-a.6.2.8'],
     'Each request through the gateway produces one evidence record.',
   ],
   [
@@ -129,7 +128,7 @@ const TESTS: [string, string, string[], string][] = [
   [
     'Evidence retention of at least 6 months',
     'int-cloud',
-    ['aia-12', 'aia-18'],
+    ['aia-12', 'aia-18', 'aia-19', 'aia-26-6'],
     'Storage retention keeps evidence for at least 6 months.',
   ],
   [
@@ -165,13 +164,13 @@ const TESTS: [string, string, string[], string][] = [
   [
     'Kill switch drill run in the last 90 days',
     'int-hooks',
-    ['aia-14', 'iso-a.6.2.6'],
+    ['aia-14', 'aia-20', 'iso-a.6.2.6'],
     'A kill switch activation and resume drill ran in the last 90 days.',
   ],
   [
     'Kill switch activation requires MFA',
     'int-idp',
-    ['aia-14', 'aia-15'],
+    ['aia-14', 'aia-15', 'aia-20'],
     'Activating the kill switch asks for a second factor.',
   ],
   [
@@ -237,13 +236,13 @@ const TESTS: [string, string, string[], string][] = [
   [
     'Deployer logs retained by the customer',
     'int-cloud',
-    ['aia-26'],
+    ['aia-26-6'],
     'Deployer-side log retention is configured and reported.',
   ],
   [
     'Oversight staff assigned by the deployer',
     'int-idp',
-    ['aia-26', 'aia-14'],
+    ['aia-26-2', 'aia-14'],
     'Each deployment names people for human oversight.',
   ],
   [
@@ -261,7 +260,7 @@ const TESTS: [string, string, string[], string][] = [
   [
     'Post-market monitoring plan has metrics',
     'int-ticket',
-    ['aia-72', 'iso-9.1'],
+    ['aia-72', 'aia-26-5', 'iso-9.1'],
     'The monitoring plan defines metrics, thresholds and owners.',
   ],
   [
@@ -387,9 +386,9 @@ const CONTROLS: [string, string[], string[], string[], string[]][] = [
   ['AI risk management process', ['aia-9', 'iso-6.1.2', 'iso-8.2'], t(5, 6), [], ['POL-04']],
   ['Governance of training data', ['aia-10', 'iso-a.7.4'], t(7, 8), ['DOC-05'], []],
   ['Technical documentation maintained', ['aia-11', 'iso-7.5'], t(9, 10), ['DOC-01', 'DOC-12'], []],
-  ['Automatic event logging', ['aia-12', 'iso-a.6.2.8'], t(11, 24), ['DOC-06'], []],
+  ['Automatic event logging', ['aia-12', 'aia-86', 'iso-a.6.2.8'], t(11, 24), ['DOC-06'], []],
   ['Tamper-evident evidence chain', ['aia-12'], t(12, 13, 14), [], []],
-  ['Log retention', ['aia-12', 'aia-18'], t(15, 32), ['DOC-06'], ['POL-05']],
+  ['Log retention', ['aia-12', 'aia-18', 'aia-19', 'aia-26-6'], t(15, 32), ['DOC-06'], ['POL-05']],
   ['Information for deployers', ['aia-13', 'iso-a.8.2'], t(16), ['DOC-02'], []],
   ['Transparency to end users', ['aia-13'], t(17), [], ['POL-02']],
   [
@@ -400,7 +399,7 @@ const CONTROLS: [string, string[], string[], string[], string[]][] = [
     ['POL-03'],
   ],
   ['Competence of oversight staff', ['aia-14', 'iso-a.3.2'], t(20), ['DOC-03'], ['POL-03']],
-  ['Emergency stop', ['aia-14'], t(21, 22), ['DOC-04'], ['POL-06']],
+  ['Emergency stop', ['aia-14', 'aia-20'], t(21, 22), ['DOC-04'], ['POL-06']],
   ['Agent depth limit', ['aia-15', 'iso-a.6.2.6'], t(23), [], []],
   ['MCP tool governance', ['aia-15', 'iso-a.10.3'], t(24, 25), [], ['POL-07']],
   ['Detection quality measured', ['aia-15', 'iso-a.6.2.4'], t(26, 29), [], []],
@@ -408,7 +407,7 @@ const CONTROLS: [string, string[], string[], string[], string[]][] = [
   ['Quality management system', ['aia-17', 'iso-5.2'], t(30), [], ['POL-08']],
   ['AI policy in place', ['iso-5.2', 'iso-a.2.2'], t(31), [], ['POL-01']],
   ['Documentation keeping', ['aia-18', 'iso-7.5'], t(32), ['DOC-06'], []],
-  ['Deployer duties communicated', ['aia-26'], t(33, 34), ['DOC-02'], []],
+  ['Deployer duties communicated', ['aia-26-2', 'aia-26-6'], t(33, 34), ['DOC-02'], []],
   ['Conformity assessment', ['aia-43'], t(35), [], []],
   ['Declaration of conformity', ['aia-47'], t(36), [], []],
   ['Post-market monitoring', ['aia-72', 'iso-9.1'], t(37), ['DOC-07'], []],
@@ -420,7 +419,7 @@ const CONTROLS: [string, string[], string[], string[], string[]][] = [
   ['Supplier management', ['iso-a.10.3'], t(43), ['DOC-11'], ['POL-07']],
   ['Corrective action', ['iso-10.2'], t(44, 38), [], []],
   ['Context of the organisation', ['iso-4.1'], t(31, 5), [], ['POL-01']],
-  ['Monitoring and measurement', ['iso-9.1', 'aia-72'], t(26, 37), ['DOC-07'], []],
+  ['Monitoring and measurement', ['iso-9.1', 'aia-72', 'aia-26-5'], t(26, 37), ['DOC-07'], []],
   ['Reviewer access control', ['aia-14', 'iso-a.3.2'], t(18, 22), [], ['POL-03']],
 ];
 
@@ -558,89 +557,3 @@ export const policies: Policy[] = POLICIES.map(
     };
   },
 );
-
-const controlsFor = (item: string) =>
-  controls.filter((c) => c.frameworkItemIds.includes(item)).map((c) => c.id);
-const testsFor = (item: string) =>
-  tests.filter((x) => x.frameworkItemIds.includes(item)).map((x) => x.id);
-
-// [article number, what NAG covers, what the customer must do, status]
-const COVERAGE: [number, string, string, ArticleCoverage['status']][] = [
-  [
-    5,
-    'Blocks requests that match the prohibited-practice bundles before they reach the model, and records each block.',
-    'Decide which uses are in scope, keep the bundles enabled and handle appeals from blocked users.',
-    'covered',
-  ],
-  [
-    11,
-    'Fills the runtime sections of the technical documentation: logging, oversight, accuracy and monitoring data.',
-    'Write the design, development and data sections, and keep the whole file current.',
-    'partial',
-  ],
-  [
-    12,
-    'Writes a tamper-evident record for each AI request with three integrity layers.',
-    'Keep the logging enabled on every endpoint and review gaps reported by verification.',
-    'covered',
-  ],
-  [
-    13,
-    'Shows the interaction notice and provides runtime facts for the instructions for use.',
-    'Write and publish instructions for use to deployers.',
-    'partial',
-  ],
-  [
-    14,
-    'Routes uncertain output to a reviewer queue, escalates it in business hours and offers a kill switch.',
-    'Assign trained reviewers, decide items with a reason and run kill switch drills.',
-    'covered',
-  ],
-  [
-    18,
-    'Keeps evidence and the package inputs exportable for the retention period.',
-    'Store the documentation for the full period after the system is placed on the market.',
-    'partial',
-  ],
-  [
-    26,
-    'Gives deployers logs, oversight tooling and an incident trail.',
-    'As deployer, use the system as instructed, assign oversight and keep logs.',
-    'customer',
-  ],
-  [
-    43,
-    'Prepares the evidence and runtime sections for the chosen assessment route.',
-    'Choose the route, run the assessment and involve a notified body where needed.',
-    'partial',
-  ],
-  [
-    47,
-    'Drafts the declaration from package data as an unsigned draft.',
-    'Review, complete and sign the declaration as the provider.',
-    'customer',
-  ],
-];
-
-const ARTICLE_TITLES: Record<number, string> = {
-  5: 'Practices that are not allowed',
-  11: 'Technical documentation',
-  12: 'Automatic logging of events',
-  13: 'Information for deployers',
-  14: 'People overseeing the system',
-  18: 'Keeping documentation',
-  26: 'Duties of deployers',
-  43: 'Assessing conformity',
-  47: 'Declaring conformity',
-};
-
-export const coverage: ArticleCoverage[] = COVERAGE.map(([n, nagCovers, customerMust, status]) => ({
-  frameworkItemId: `aia-${n}`,
-  article: `Art. ${n}`,
-  title: ARTICLE_TITLES[n]!,
-  nagCovers,
-  customerMust,
-  status,
-  testIds: testsFor(`aia-${n}`),
-  controlIds: controlsFor(`aia-${n}`),
-}));
