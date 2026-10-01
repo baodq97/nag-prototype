@@ -5,6 +5,7 @@ import { addTask, useTasks } from '../session/store';
 import { Button } from './Button';
 import { Drawer } from './Drawer';
 import { SelectField, TextField } from './Field';
+import { useToast } from './useToast';
 import { fmtDate, fmtDateTime } from './format';
 import { StatusChip } from './StatusChip';
 import { Tabs } from './Tabs';
@@ -53,11 +54,13 @@ export function TaskList({ objectId }: { objectId: string }) {
   const [title, setTitle] = useState('');
   const [assignee, setAssignee] = useState(people[0]!.name);
   const [added, setAdded] = useState<string | null>(null);
+  const toast = useToast();
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
     const task = addTask(objectId, title.trim(), assignee);
     setAdded(`Task ${task.id} created and assigned to ${assignee}.`);
+    toast(`Task ${task.id} created`);
     setTitle('');
   };
   return (

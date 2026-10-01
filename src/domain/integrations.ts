@@ -2,17 +2,24 @@ import { frameworksOf } from './posture';
 import type { ComplianceTest, Control, FrameworkItem, IntegrationKind } from './types';
 
 /**
- * The one place integration types get their display label. A `Record` over the union, so a new
- * type without a label fails the type check. The list, its filters and the detail screen read it.
+ * The one place integration categories get their display label. A `Record` over the union, so a
+ * new category without a label fails the type check. The list, its cards and the detail screen
+ * read it.
  */
 export const INTEGRATION_KIND_LABEL: Record<IntegrationKind, string> = {
-  'reverse-proxy': 'Reverse proxy',
-  'lifecycle-hooks': 'Lifecycle hooks',
+  'ai-gateway': 'AI gateway',
+  'agent-hooks': 'Agent SDK hooks',
   'mcp-inspector': 'MCP inspector',
+  'model-endpoint': 'Model endpoint',
   identity: 'Identity provider',
   ticketing: 'Ticketing',
-  cloud: 'Cloud',
-  'source-control': 'Source control',
+  chat: 'Chat notifications',
+  'key-management': 'Key management',
+  'evidence-archive': 'Evidence archive storage',
+  'security-export': 'Security event export',
+  'timestamp-authority': 'Timestamp authority',
+  'source-repository': 'Source repository',
+  cloud: 'Cloud platform',
 };
 
 export interface Unlocks {

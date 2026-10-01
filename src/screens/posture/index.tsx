@@ -1,13 +1,16 @@
 import { Link } from 'react-router';
 import {
   FRAMEWORK_NAMES,
+  NOW,
   deployment,
   detectionQuality,
   personName,
   postureSummary,
   reviewCounts,
+  tenant,
   tests,
 } from '../../data';
+import { testStrip } from '../../domain/summaries';
 import { Card, Stat } from '../../ui/Card';
 import { fmtDate } from '../../ui/format';
 import { StubLabel } from '../../ui/Labels';
@@ -21,8 +24,49 @@ const failing = tests
   .filter((t) => t.status === 'failing')
   .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
+// The same figures as the strip on the tests screen; each one links to the tests it counts.
+const strip = testStrip(tests, NOW, tenant.timeZone);
+type Tone = 'default' | 'danger' | 'warning';
+const tone = (n: number, t: Tone): Tone => (n > 0 ? t : 'default');
+const figures: {
+  tile: string;
+  label: string;
+  value: string | number;
+  tone: Tone;
+  hint: string;
+}[] = [
+  {
+    tile: 'passing',
+    label: 'Tests passing',
+    value: `${strip.passingPct}%`,
+    tone: 'default' as const,
+    hint: `${summary.passing} of ${summary.total} tests`,
+  },
+  {
+    tile: 'overdue',
+    label: 'Overdue',
+    value: strip.overdue,
+    tone: tone(strip.overdue, 'danger'),
+    hint: 'Failing, past the due date',
+  },
+  {
+    tile: 'needs-remediation',
+    label: 'Needs remediation',
+    value: strip.needsRemediation,
+    tone: tone(strip.needsRemediation, 'warning'),
+    hint: 'Failing, due in more than 14 days',
+  },
+  {
+    tile: 'due-soon',
+    label: 'Due soon',
+    value: strip.dueSoon,
+    tone: tone(strip.dueSoon, 'warning'),
+    hint: 'Failing, due within 14 days',
+  },
+];
+
 export default function Screen() {
-  const { attention, byFramework, trend, passing, total, passingPct } = summary;
+  const { byFramework, trend } = summary;
   return (
     <Page
       title="Posture overview"
@@ -37,29 +81,16 @@ export default function Screen() {
       </Link>
 
       <section aria-label="Key figures" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat
-          label="Tests passing"
-          value={`${passingPct}%`}
-          hint={`${passing} of ${total} tests`}
-        />
-        <Stat
-          label="Overdue"
-          value={attention.overdue}
-          tone={attention.overdue > 0 ? 'danger' : 'default'}
-          hint="Failing, past the due date"
-        />
-        <Stat
-          label="Needs remediation"
-          value={attention['needs-remediation']}
-          tone={attention['needs-remediation'] > 0 ? 'warning' : 'default'}
-          hint="Failing, due in more than 14 days"
-        />
-        <Stat
-          label="Due soon"
-          value={attention['due-soon']}
-          tone={attention['due-soon'] > 0 ? 'warning' : 'default'}
-          hint="Failing, due within 14 days"
-        />
+        {figures.map((f) => (
+          <Link
+            key={f.tile}
+            to={`/tests?tile=${f.tile}`}
+            aria-label={`${f.label} ${f.value}: show these tests`}
+            className="rounded-lg hover:ring-1 hover:ring-accent-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600"
+          >
+            <Stat label={f.label} value={f.value} tone={f.tone} hint={f.hint} />
+          </Link>
+        ))}
       </section>
 
       <div className="grid gap-4 lg:grid-cols-3">

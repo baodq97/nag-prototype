@@ -73,12 +73,26 @@ describe('docs/demo-paths.md', () => {
       'Classifier card',
       'Sessions card',
       'Erasure requests table',
-      'Codes card',
+      'Event types card',
       'checklist cards',
     ]) {
       expect(doc.replace(/\s+/g, ' '), text).toContain(text);
     }
-    expect(doc).not.toMatch(/event type/i);
+  });
+
+  it('points at the new anchors: purpose lines, strips, the gap on load and the error panel', () => {
+    const flat = doc.replace(/\s+/g, ' ');
+    for (const text of [
+      'one line saying what it is for',
+      'The summary strip',
+      '4 of 5 ranges verify; gap at seq 137 in 101–150',
+      'Configure scope',
+      'How to remediate',
+      'row 1',
+    ]) {
+      expect(flat, text).toContain(text);
+    }
+    expect(flat).not.toContain('Codes card');
   });
 
   it('has the matcher accept parameter routes and reject unknown ones', () => {

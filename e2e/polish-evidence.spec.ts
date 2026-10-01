@@ -1,10 +1,15 @@
 // Paged evidence (R15): 50 rows per page, the pager, filters that return to page 1, the range
-// links in the verification results, the page in the URL and the height of the page.
+// links in the verification results, the page in the URL and the height of the page. Console
+// evidence (R25 to R28): the last check on load, its next steps, plain event labels, no Tenant
+// column, and the filters and the open record in the URL.
 
 import { expect, test, type Page } from '@playwright/test';
 import { evidence } from '../src/data';
-import { getCode } from '../src/domain/codes';
-import { collectErrors } from './helpers';
+import { CODES } from '../src/domain/codes';
+import { EVENT_TYPES, eventType } from '../src/screens/evidence/event-types';
+import { lastVerification } from '../src/seed/runtime';
+import { fmtDateTime } from '../src/ui/format';
+import { collectErrors, expectNoSeriousA11y } from './helpers';
 
 const PAGE_SIZE = 50;
 const PAGES = 5;
@@ -85,12 +90,12 @@ test('the count stays the count after filtering, across all pages', async ({ pag
   // Pick the code with the most records, so more than one page can be left.
   const byCode = new Map<string, number>();
   for (const r of evidence) {
-    const label = getCode(r.code).label;
+    const label = eventType(r.code).label;
     byCode.set(label, (byCode.get(label) ?? 0) + 1);
   }
   const [code, total] = [...byCode.entries()].sort((a, b) => b[1] - a[1])[0]!;
-  // The facet's name also holds its selected option ("Code All").
-  await page.getByRole('combobox', { name: /^Code\b/ }).selectOption(code);
+  // The facet's name also holds its selected option ("Event type All").
+  await page.getByRole('combobox', { name: /^Event type\b/ }).selectOption(code);
   await expect(page.getByText(`${total} of 210 evidence records`)).toBeVisible();
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   await expect(pager(page)).toContainText(`1–${Math.min(total, PAGE_SIZE)} of ${total}`);
@@ -250,4 +255,197 @@ test('the page stays within 3,000 px at 1280x800, on load and after Verify', asy
     description: String(afterVerify),
   });
   expect(afterVerify).toBeLessThanOrEqual(3000);
+});
+
+test('on load the last check shows as one line with a link to the range and when it ran', async ({
+  page,
+}) => {
+  const errors = collectErrors(page);
+  await page.goto('/evidence');
+
+  const line = page.getByTestId('verification-line');
+  await expect(line).toHaveText('4 of 5 ranges verify; gap at seq 137 in 101–150');
+  await expect(page.getByTestId('range-101')).toHaveCount(0);
+  await expect(page.getByText(`Ran ${fmtDateTime(lastVerification.at)}`)).toBeVisible();
+
+  // The gap chip is red and its tooltip describes the gap, not a verified range.
+  const chip = page.locator('[data-chip]', { hasText: 'Gap found' });
+  await expect(chip).toHaveAttribute('data-chip', 'danger');
+  await chip.hover();
+  await expect(page.getByRole('tooltip').filter({ visible: true })).toHaveText(
+    /integrity layer fails for this range/,
+  );
+
+  // With the newest record first, 101–150 starts on page 2.
+  await line.click();
+  await expectPage(page, 2);
+  await expect(page).toHaveURL(/[?&]page=2\b/);
+  expect((await seqsOnPage(page)).some((s) => s >= 101 && s <= 150)).toBe(true);
+
+  expect(errors).toEqual([]);
+});
+
+test('the gap shows three next steps: the records, the failing test and runtime health', async ({
+  page,
+}) => {
+  await page.goto('/evidence');
+  const steps = page.getByTestId('gap-next-steps');
+  await expect(steps.getByRole('link')).toHaveCount(3);
+
+  await expect(steps.getByRole('link', { name: /Review records 101–150/ })).toBeVisible();
+  await expect(steps.getByRole('link', { name: /Failing test TST-013/ })).toHaveAttribute(
+    'href',
+    `/tests/${lastVerification.integrityTestId}`,
+  );
+  await expect(steps.getByRole('link', { name: /Runtime health/ })).toHaveAttribute(
+    'href',
+    '/runtime-health',
+  );
+
+  await steps.getByRole('link', { name: /Failing test/ }).click();
+  await expect(page).toHaveURL(/\/tests\/TST-013$/);
+  await page.goBack();
+  await steps.getByRole('link', { name: /Runtime health/ }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'Runtime health' })).toBeVisible();
+});
+
+test('Verify re-runs the check and the line stays the same', async ({ page }) => {
+  await page.goto('/evidence');
+  await page.getByRole('button', { name: 'Verify' }).click();
+  await expect(page.getByTestId('range-101')).toBeVisible();
+  await expect(page.getByTestId('verification-line')).toHaveText(
+    '4 of 5 ranges verify; gap at seq 137 in 101–150',
+  );
+  const rangeChip = page.getByTestId('range-101').locator('[data-chip]');
+  await expect(rangeChip).toHaveText('Gap found');
+  await expect(rangeChip).toHaveAttribute('data-chip', 'danger');
+  await rangeChip.hover();
+  await expect(page.getByRole('tooltip').filter({ visible: true })).toHaveText(
+    /integrity layer fails for this range/,
+  );
+  await expect(page.getByText(/^Re-run /)).toBeVisible();
+});
+
+test('event types show a plain label and an icon, and the raw code only in the drawer', async ({
+  page,
+}) => {
+  await page.goto('/evidence');
+  await expectPage(page, 1);
+  const table = page.getByRole('table').last();
+
+  const rows = table.getByRole('row');
+  await expect(rows.nth(1)).toBeVisible();
+  for (const row of (await rows.all()).slice(1)) {
+    await expect(row.locator('td').nth(2).locator('svg')).toHaveCount(1);
+  }
+  const labels = new Set(
+    (await table.locator('tbody tr td:nth-child(3)').allInnerTexts()).map((t) => t.trim()),
+  );
+  const known = new Set(Object.values(EVENT_TYPES).map((t) => t.label));
+  for (const label of labels) expect(known.has(label), label).toBe(true);
+  expect(labels.has('Allowed')).toBe(true);
+
+  // The raw code is not shown in the table or the cards.
+  await expect(table).not.toContainText('NAG-D0');
+  await expect(page.locator('main')).not.toContainText('NAG-D0');
+
+  // The newest blocked record is on the first page.
+  const record = evidence.filter((r) => r.code === 'NAG-D002').sort((a, b) => b.seq - a.seq)[0]!;
+  await page.getByRole('button', { name: `Open record ${record.seq}`, exact: true }).click();
+  await expect(page.getByRole('dialog', { name: `Record ${record.seq}` })).toContainText(
+    'NAG-D002',
+  );
+});
+
+test('every event type in the catalogue has a label on the page', async ({ page }) => {
+  await page.goto('/evidence');
+  for (const c of CODES) {
+    await expect(page.getByTestId(`code-${c.id}`)).toContainText(eventType(c.id).label);
+  }
+});
+
+test('the Tenant column is gone', async ({ page }) => {
+  await page.goto('/evidence');
+  await expectPage(page, 1);
+  const headers = (await page.getByRole('table').last().getByRole('columnheader').allInnerTexts())
+    .map((t) => t.trim())
+    .filter(Boolean);
+  expect(headers).toEqual(['Seq', 'Timestamp', 'Event type', 'Endpoint', 'Keyed digest']);
+  await expect(page.getByRole('columnheader', { name: /Tenant/ })).toHaveCount(0);
+});
+
+test('a reload restores the filters, the page and the open record', async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.goto('/evidence');
+  // Wait for each change to reach the URL, as the next one builds on it.
+  await page.getByRole('combobox', { name: /^Event type\b/ }).selectOption('Allowed');
+  await expect(page).toHaveURL(/code=Allowed/);
+  await page.getByRole('combobox', { name: /^Endpoint\b/ }).selectOption({ index: 1 });
+  await expect(page).toHaveURL(/endpoint=/);
+  await page.getByLabel('Filter evidence records').fill('1');
+  await expect(page).toHaveURL(/q=1\b/);
+  const shown = (await page.getByText(/ of 210 evidence records/).innerText()).trim();
+
+  await page.reload();
+  await expect(page.getByRole('combobox', { name: /^Event type\b/ })).toHaveValue('Allowed');
+  await expect(page.getByRole('combobox', { name: /^Endpoint\b/ })).not.toHaveValue('');
+  await expect(page.getByLabel('Filter evidence records')).toHaveValue('1');
+  await expect(page.getByText(shown)).toBeVisible();
+
+  // The filters survive a page change, and a filter change after it drops the page only.
+  let q = '1';
+  const total = Number(/^(\d+) of/.exec(shown)![1]);
+  if (total > PAGE_SIZE) {
+    await pager(page).getByRole('button', { name: 'Next' }).click();
+    await expect(page).toHaveURL(/[?&]page=2\b/);
+    await page.reload();
+    await expect(page.getByLabel('Filter evidence records')).toHaveValue('1');
+    await expect(pager(page)).toContainText('Page 2');
+    q = '13';
+    await page.getByLabel('Filter evidence records').fill(q);
+    await expect(page).not.toHaveURL(/page=/);
+    await expect(page).toHaveURL(/[?&]q=13\b/);
+    await expect(page).toHaveURL(/[?&]code=Allowed\b/);
+  }
+
+  const seq = (await seqsOnPage(page))[0]!;
+  await openButtons(page).first().click();
+  await expect(page).toHaveURL(new RegExp(`[?&]open=${seq}\\b`));
+  await page.reload();
+  await expect(page.getByRole('dialog', { name: `Record ${seq}` })).toBeVisible();
+  await expect(page.getByLabel('Filter evidence records')).toHaveValue(q);
+
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page).not.toHaveURL(/open=/);
+
+  expect(errors).toEqual([]);
+});
+
+test('Esc closes the record drawer and focus returns to the record button', async ({ page }) => {
+  await page.goto('/evidence');
+  const button = page.getByRole('button', { name: 'Open record 211', exact: true });
+  await button.click();
+  await expect(page.getByRole('dialog', { name: 'Record 211' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(button).toBeFocused();
+});
+
+test('the record drawer has no serious accessibility violations', async ({ page }) => {
+  await page.goto('/evidence');
+  await openButtons(page).first().click();
+  await expect(page.getByRole('dialog', { name: /^Record \d+$/ })).toBeVisible();
+  await expectNoSeriousA11y(page);
+});
+
+test('no horizontal scroll at 1280x800', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto('/evidence');
+  await page.getByRole('button', { name: 'Verify' }).click();
+  await expect(page.getByTestId('range-101')).toBeVisible();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
 });

@@ -1,11 +1,13 @@
-import { ShieldCheck } from 'lucide-react';
-import { type ReactNode, useMemo, useState } from 'react';
+import { ArrowRight, ShieldCheck } from 'lucide-react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { authorities, evidence, ledgerOperations, verification } from '../../data';
+import { authorities, evidence, getTest, ledgerOperations, verification } from '../../data';
 import { CODES, getCode } from '../../domain/codes';
 import { pageForRange } from '../../domain/evidence-paging';
 import { runSummary } from '../../domain/ledger-ops';
+import { type VerificationSummary, verificationSummary } from '../../domain/summaries';
 import type { EvidenceRecord, RangeVerification } from '../../domain/types';
+import { lastVerification } from '../../seed/runtime';
 import { Button } from '../../ui/Button';
 import { Card } from '../../ui/Card';
 import { DataTable, type Column, type Facet, type Sort } from '../../ui/DataTable';
@@ -15,6 +17,8 @@ import { fmtDateTime } from '../../ui/format';
 import { StubLabel } from '../../ui/Labels';
 import { Page } from '../../ui/Page';
 import { StatusChip } from '../../ui/StatusChip';
+import { useOpenParam } from '../../ui/useOpenParam';
+import { eventType } from './event-types';
 
 const PAGE_SIZE = 50;
 const INITIAL_SORT: Sort = { key: 'seq', dir: 'desc' };
@@ -27,6 +31,16 @@ const pageFromParam = (value: string | null) => {
 
 const short = (value: string, keep = 22) =>
   value.length > keep ? `${value.slice(0, keep)}…` : value;
+
+function EventLabel({ code, size = 14 }: { code: string; size?: number }) {
+  const { label, icon: Icon } = eventType(code);
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+      <Icon size={size} aria-hidden className="shrink-0 text-slate-600" />
+      {label}
+    </span>
+  );
+}
 
 const columns = (open: (r: EvidenceRecord) => void): Column<EvidenceRecord>[] => [
   {
@@ -53,16 +67,11 @@ const columns = (open: (r: EvidenceRecord) => void): Column<EvidenceRecord>[] =>
     sortValue: (r) => r.timestamp,
     render: (r) => <span className="whitespace-nowrap">{fmtDateTime(r.timestamp)}</span>,
   },
-  { key: 'tenant', header: 'Tenant', render: (r) => r.tenantId },
   {
     key: 'code',
-    header: 'Code',
-    sortValue: (r) => getCode(r.code).label,
-    render: (r) => (
-      <span className="whitespace-nowrap">
-        {getCode(r.code).label} <span className="font-mono text-xs text-slate-600">{r.code}</span>
-      </span>
-    ),
+    header: 'Event type',
+    sortValue: (r) => eventType(r.code).label,
+    render: (r) => <EventLabel code={r.code} />,
   },
   {
     key: 'endpoint',
@@ -82,13 +91,21 @@ const columns = (open: (r: EvidenceRecord) => void): Column<EvidenceRecord>[] =>
 ];
 
 const facets: Facet<EvidenceRecord>[] = [
-  { key: 'code', label: 'Code', value: (r) => getCode(r.code).label },
+  { key: 'code', label: 'Event type', value: (r) => eventType(r.code).label },
   { key: 'endpoint', label: 'Endpoint', value: (r) => r.endpoint },
 ];
 
-function Pair({ label, children }: { label: ReactNode; children: ReactNode }) {
+function Pair({
+  label,
+  className,
+  children,
+}: {
+  label: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
   return (
-    <div>
+    <div className={className}>
       <dt className="text-xs font-medium text-slate-600">{label}</dt>
       <dd className="mt-0.5 text-sm break-all text-slate-900">{children}</dd>
     </div>
@@ -108,11 +125,13 @@ function RecordDetail({ record }: { record: EvidenceRecord }) {
   return (
     <>
       <p className="text-sm text-slate-700">
-        {getCode(record.code).label} on <span className="font-mono text-xs">{record.endpoint}</span>{' '}
-        at {fmtDateTime(record.timestamp)}. Only a keyed digest is kept, never the content.
+        {eventType(record.code).label} on{' '}
+        <span className="font-mono text-xs">{record.endpoint}</span> at{' '}
+        {fmtDateTime(record.timestamp)}. Only a keyed digest is kept, never the content.
       </p>
-      <Layer title="Code">
-        <Pair label="Label">{getCode(record.code).label}</Pair>
+      <Layer title="Event type">
+        <Pair label="Label">{eventType(record.code).label}</Pair>
+        <Pair label="Full name">{getCode(record.code).label}</Pair>
         <Pair label="Code ID">
           <span className="font-mono text-xs">{record.code}</span>
         </Pair>
@@ -153,20 +172,15 @@ function RecordDetail({ record }: { record: EvidenceRecord }) {
 function VerificationResults({
   ranges,
   searchFor,
-  onFollow,
 }: {
   ranges: RangeVerification[];
-  /** The URL search string of the table page that holds the range, in the current sort. */
-  searchFor: (range: RangeVerification) => string;
-  /** Called when a range link is followed, to clear the table filters. */
-  onFollow: () => void;
+  /** The URL search string that opens the table page holding the range, with no filters. */
+  searchFor: (range: { fromSeq: number; toSeq: number }) => string;
 }) {
   return (
-    <Card title="Verification result per range and layer">
-      <p className="mb-3 text-xs text-slate-600">
-        Seeded results for this demo. No cryptographic check runs in the browser.
-      </p>
-      <div className="overflow-x-auto">
+    <div className="mt-3 overflow-x-auto border-t border-slate-100 pt-2">
+      <h3 className="sr-only">Verification result per range and layer</h3>
+      <div>
         <table className="w-full text-left text-sm">
           <thead className="text-xs text-slate-600">
             <tr>
@@ -193,7 +207,6 @@ function VerificationResults({
                 <th scope="row" className="px-2 py-1.5 font-mono text-sm font-medium">
                   <Link
                     to={{ search: searchFor(r) }}
-                    onClick={onFollow}
                     className="text-accent-700 underline-offset-2 hover:underline"
                   >
                     {r.fromSeq}–{r.toSeq}
@@ -203,7 +216,7 @@ function VerificationResults({
                   {r.ok ? (
                     <StatusChip status="verified">Verified</StatusChip>
                   ) : (
-                    <StatusChip variant="danger">Gap found</StatusChip>
+                    <StatusChip status="gap" />
                   )}
                 </td>
                 {r.layers.map((l) => (
@@ -219,7 +232,7 @@ function VerificationResults({
           </tbody>
         </table>
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -232,7 +245,7 @@ function OperationsCard() {
   const failing = lastRun.failing.flatMap((r) => r.layers.filter((l) => !l.ok));
   return (
     <Card title="Operations">
-      <dl className="flex flex-col gap-2">
+      <dl className="grid gap-x-6 gap-y-2 lg:grid-cols-4">
         <Pair label="Schedule">
           {schedule.name}, every {WEEKDAYS[schedule.weekday]} {two(schedule.hour)}:
           {two(schedule.minute)} tenant time
@@ -259,13 +272,14 @@ function OperationsCard() {
           </span>
         </Pair>
         <Pair
+          className="lg:col-span-4"
           label={
             <>
               Timestamp authorities <StubLabel what="The timestamp authorities" />
             </>
           }
         >
-          <ul className="flex flex-col gap-1">
+          <ul className="flex flex-wrap gap-x-6 gap-y-1">
             {list.map((a) => (
               <li key={a.id} className="flex items-center gap-2">
                 {a.name}
@@ -287,62 +301,170 @@ function OperationsCard() {
 
 function CodesCard() {
   return (
-    <Card title="Codes">
-      <p className="mb-2 text-xs text-slate-600">
-        Some codes do not occur in this demo&apos;s records.
-      </p>
-      <table className="w-full text-left text-sm">
-        <thead className="text-xs text-slate-600">
-          <tr>
-            <th scope="col" className="px-2 py-1 font-medium">
-              Code ID
-            </th>
-            <th scope="col" className="px-2 py-1 font-medium">
-              Kind
-            </th>
-            <th scope="col" className="px-2 py-1 font-medium">
-              Label
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {CODES.map((c) => (
-            <tr key={c.id} data-testid={`code-${c.id}`}>
-              <th scope="row" className="px-2 py-1 font-mono text-xs font-medium">
-                {c.id}
+    <details className="rounded-lg border border-slate-200 bg-white">
+      <summary className="cursor-pointer px-4 py-2.5 text-sm font-semibold text-slate-900">
+        Event types
+        <span className="ml-2 text-xs font-normal text-slate-600">
+          {CODES.length} types; some do not occur in this demo&apos;s records
+        </span>
+      </summary>
+      <div className="border-t border-slate-200 p-4">
+        <table className="w-full text-left text-sm">
+          <thead className="text-xs text-slate-600">
+            <tr>
+              <th scope="col" className="px-2 py-1 font-medium">
+                Event type
               </th>
-              <td className="px-2 py-1">{c.kind === 'decision' ? 'Decision' : 'Error'}</td>
-              <td className="px-2 py-1">{c.label}</td>
+              <th scope="col" className="px-2 py-1 font-medium">
+                Full name
+              </th>
+              <th scope="col" className="px-2 py-1 font-medium">
+                Kind
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {CODES.map((c) => (
+              <tr key={c.id} data-testid={`code-${c.id}`}>
+                <th scope="row" className="px-2 py-1 font-medium">
+                  <EventLabel code={c.id} size={12} />
+                </th>
+                <td className="px-2 py-1">{c.label}</td>
+                <td className="px-2 py-1">{c.kind === 'decision' ? 'Decision' : 'Error'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  );
+}
+
+function IntegrityCard({
+  summary,
+  ranAt,
+  rerun,
+  searchFor,
+  children,
+}: {
+  summary: VerificationSummary;
+  ranAt: string;
+  rerun: boolean;
+  searchFor: (range: { fromSeq: number; toSeq: number }) => string;
+  children?: ReactNode;
+}) {
+  const { gap } = summary;
+  const test = getTest(lastVerification.integrityTestId);
+  return (
+    <Card title="Last integrity check" className={gap ? 'border-red-200' : ''}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        {gap ? <StatusChip status="gap" /> : <StatusChip status="verified">Verified</StatusChip>}
+        {gap ? (
+          <Link
+            to={{ search: searchFor(gap) }}
+            data-testid="verification-line"
+            className="text-sm font-semibold text-accent-700 underline-offset-2 hover:underline"
+          >
+            {summary.line}
+          </Link>
+        ) : (
+          <span data-testid="verification-line" className="text-sm font-semibold text-slate-900">
+            {summary.line}
+          </span>
+        )}
+        <span className="text-xs text-slate-600">
+          {rerun ? 'Re-run' : 'Ran'} {fmtDateTime(ranAt)}. Seeded results; no cryptographic check
+          runs in the browser.
+        </span>
+      </div>
+      {gap && (
+        <div className="mt-3 border-t border-slate-100 pt-3">
+          <h3 className="text-xs font-medium text-slate-600">Next steps</h3>
+          <ul
+            data-testid="gap-next-steps"
+            className="mt-1 flex flex-wrap gap-x-6 gap-y-1 text-sm text-accent-700"
+          >
+            <li>
+              <Link
+                to={{ search: searchFor(gap) }}
+                className="inline-flex items-center gap-1 underline-offset-2 hover:underline"
+              >
+                Review records {gap.fromSeq}–{gap.toSeq}
+                <ArrowRight size={12} aria-hidden />
+              </Link>
+            </li>
+            <li>
+              <Link
+                to={`/tests/${lastVerification.integrityTestId}`}
+                className="inline-flex items-center gap-1 underline-offset-2 hover:underline"
+              >
+                Failing test {lastVerification.integrityTestId}
+                {test ? `: ${test.name}` : ''}
+                <ArrowRight size={12} aria-hidden />
+              </Link>
+            </li>
+            <li>
+              <Link
+                to="/runtime-health"
+                className="inline-flex items-center gap-1 underline-offset-2 hover:underline"
+              >
+                Runtime health
+                <ArrowRight size={12} aria-hidden />
+              </Link>
+            </li>
+          </ul>
+        </div>
+      )}
+      {children}
     </Card>
   );
 }
 
 export default function EvidenceScreen() {
-  const [selected, setSelected] = useState<EvidenceRecord | null>(null);
+  const [open, setOpen] = useOpenParam();
   const [results, setResults] = useState<RangeVerification[] | null>(null);
+  const [ranAt, setRanAt] = useState<string>(lastVerification.at);
   const [sort, setSort] = useState<Sort>(INITIAL_SORT);
-  const [resetKey, setResetKey] = useState(0);
   const [params, setParams] = useSearchParams();
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+
+  const summary = useMemo(() => verificationSummary(results ?? verification()), [results]);
+  const selected = useMemo(() => evidence.find((r) => String(r.seq) === open) ?? null, [open]);
+  const closeDrawer = useCallback(() => setOpen(null), [setOpen]);
 
   // One columns array for the table and for the range-to-page mapping, so both sort the same way.
-  const cols = useMemo(() => columns(setSelected), []);
+  const cols = useMemo(() => columns((r) => setOpen(String(r.seq))), [setOpen]);
   const sorted = useMemo(() => sortRows(evidence, cols, sort), [cols, sort]);
 
   const page = pageFromParam(params.get('page'));
   const setPage = (next: number) => {
     if (next === page) return;
-    setParams((prev) => {
-      const out = new URLSearchParams(prev);
-      if (next > 1) out.set('page', String(next));
-      else out.delete('page');
-      return out;
-    });
+    if (next > 1) {
+      setParams((prev) => {
+        const out = new URLSearchParams(prev);
+        out.set('page', String(next));
+        return out;
+      });
+      return;
+    }
+    // A change to the filters or the sort asks for page 1 in the same tick as its own write to
+    // the URL, and a second write from the same render would drop the first. Wait for that write
+    // to land, then remove only the page.
+    setTimeout(() => {
+      if (!alive.current) return;
+      const out = new URLSearchParams(window.location.search);
+      out.delete('page');
+      setParams(out, { replace: true });
+    }, 0);
   };
-  const searchFor = (range: RangeVerification) => {
+  // A link to a range replaces the whole query, so the filters and the open record are cleared.
+  const searchFor = (range: { fromSeq: number; toSeq: number }) => {
     const target = pageForRange(sorted, range.fromSeq, range.toSeq, PAGE_SIZE);
     return target > 1 ? `?page=${target}` : '';
   };
@@ -351,30 +473,24 @@ export default function EvidenceScreen() {
     <Page
       title="Evidence"
       demo
-      description={
-        <>
-          Tamper-evident records of runtime events: each one links to the one before it, sits in a
-          Merkle batch and is anchored in time. Records hold a keyed digest, never the content.
-        </>
-      }
       actions={
-        <Button variant="primary" onClick={() => setResults(verification())}>
+        <Button
+          variant="primary"
+          onClick={() => {
+            setResults(verification());
+            setRanAt(new Date().toISOString());
+          }}
+        >
           <ShieldCheck size={14} aria-hidden />
           Verify
         </Button>
       }
     >
-      {results && (
-        <VerificationResults
-          ranges={results}
-          searchFor={searchFor}
-          onFollow={() => setResetKey((k) => k + 1)}
-        />
-      )}
-      <div className="grid items-start gap-4 lg:grid-cols-2">
-        <OperationsCard />
-        <CodesCard />
-      </div>
+      <IntegrityCard summary={summary} ranAt={ranAt} rerun={results !== null} searchFor={searchFor}>
+        {results && <VerificationResults ranges={results} searchFor={searchFor} />}
+      </IntegrityCard>
+      <OperationsCard />
+      <CodesCard />
       <DataTable
         label="evidence records"
         rows={evidence}
@@ -383,20 +499,20 @@ export default function EvidenceScreen() {
         page={page}
         onPageChange={setPage}
         onSortChange={setSort}
-        resetKey={resetKey}
+        urlState
         facets={facets}
         rowKey={(r) => String(r.seq)}
         searchText={(r) =>
-          `${r.seq} ${r.code} ${getCode(r.code).label} ${r.endpoint} ${r.tenantId} ${r.digest}`
+          `${r.seq} ${r.code} ${eventType(r.code).label} ${getCode(r.code).label} ${r.endpoint} ${r.digest}`
         }
-        onRowClick={setSelected}
+        onRowClick={(r) => setOpen(String(r.seq))}
         initialSort={INITIAL_SORT}
       />
       <Drawer
         open={selected !== null}
         title={selected ? `Record ${selected.seq}` : 'Record'}
         subtitle="Evidence record"
-        onClose={() => setSelected(null)}
+        onClose={closeDrawer}
       >
         {selected && <RecordDetail record={selected} />}
       </Drawer>

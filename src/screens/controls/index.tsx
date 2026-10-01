@@ -1,5 +1,6 @@
+import { CircleCheck, CircleX } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link } from 'react-router';
 import {
   FRAMEWORK_NAMES,
   controlStatus,
@@ -15,9 +16,11 @@ import {
 import { frameworksOf } from '../../domain/posture';
 import type { Control, FrameworkId } from '../../domain/types';
 import { type Column, DataTable, type Facet } from '../../ui/DataTable';
+import { Drawer } from '../../ui/Drawer';
 import { fmtDate } from '../../ui/format';
-import { ObjectDrawer } from '../../ui/ObjectDrawer';
+import { ObjectActivity } from '../../ui/ObjectDrawer';
 import { Page } from '../../ui/Page';
+import { Avatar, FrameworkChips } from '../tests/parts';
 import { StatusChip } from '../../ui/StatusChip';
 import { humanize } from '../../ui/status';
 import { useOpenParam } from '../../ui/useOpenParam';
@@ -59,7 +62,7 @@ function columnsFor(open: (id: string) => void): Column<Control>[] {
     {
       key: 'frameworks',
       header: 'Frameworks',
-      render: (c) => <span className="text-xs text-slate-700">{itemRefs(c.frameworkItemIds)}</span>,
+      render: (c) => <FrameworkChips itemIds={c.frameworkItemIds} max={2} />,
     },
     {
       key: 'tests',
@@ -99,6 +102,15 @@ const searchText = (c: Control) =>
 
 const LINK = 'text-accent-700 hover:underline';
 
+function Meta({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <dt className="text-xs font-medium text-slate-600">{label}</dt>
+      <dd className="mt-0.5 text-sm text-slate-900">{children}</dd>
+    </div>
+  );
+}
+
 function Mapped({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section>
@@ -109,17 +121,13 @@ function Mapped({ title, children }: { title: string; children: ReactNode }) {
 }
 
 export default function Screen() {
-  const [params] = useSearchParams();
   const [openId, setOpen] = useOpenParam();
   const selected = openId ? getControl(openId) : undefined;
+  const progress = selected ? controlStatus(selected) : undefined;
 
   return (
-    <Page
-      title="Controls"
-      description="Each control groups the tests that show it is working, plus the documents and policies behind it."
-    >
+    <Page title="Controls">
       <DataTable
-        key={params.get('q') ?? ''}
         label="controls"
         rows={controls}
         columns={columnsFor(setOpen)}
@@ -127,45 +135,66 @@ export default function Screen() {
         rowKey={(c) => c.id}
         searchText={searchText}
         onRowClick={(c) => setOpen(c.id)}
-        initialQuery={params.get('q') ?? ''}
+        urlState
+        problem={(c) => !controlStatus(c).ok}
         initialSort={{ key: 'id', dir: 'asc' }}
+        empty={{ title: 'No controls yet', body: 'Controls appear here once they are defined.' }}
       />
-      <ObjectDrawer
+      <Drawer
+        open={selected !== undefined}
         onClose={() => setOpen(null)}
-        object={
-          selected && {
-            id: selected.id,
-            kind: 'Control',
-            title: selected.name,
-            owner: personName(selected.ownerId),
-            status: statusOf(selected),
-            due: { label: 'Due date', value: fmtDate(selected.dueDate) },
-            frameworkItemIds: selected.frameworkItemIds,
-            history: selected.history,
-            comments: selected.comments,
-          }
-        }
+        title={selected?.name ?? ''}
+        subtitle={selected && `Control · ${selected.id}`}
       >
-        {selected && (
+        {selected && progress && (
           <>
+            <dl className="grid grid-cols-2 gap-3">
+              <Meta label="Owner">
+                <span className="flex items-center gap-2">
+                  <Avatar name={personName(selected.ownerId)} />
+                  {personName(selected.ownerId)}
+                </span>
+              </Meta>
+              <Meta label="Status">
+                <StatusChip status={statusOf(selected)} />
+              </Meta>
+              <Meta label="Due date">{fmtDate(selected.dueDate)}</Meta>
+              <Meta label="Frameworks">
+                <FrameworkChips itemIds={selected.frameworkItemIds} />
+              </Meta>
+            </dl>
             <p className="text-sm text-slate-700">{selected.description}</p>
             <Mapped title={`Mapped tests (${selected.testIds.length})`}>
               {selected.testIds.length === 0 ? (
                 <p className="text-sm text-slate-600">No tests mapped.</p>
               ) : (
-                <ul className="mt-1 flex flex-col gap-1">
-                  {selected.testIds.map((id) => {
-                    const t = getTest(id);
-                    return (
-                      <li key={id} className="flex items-center justify-between gap-2 text-sm">
-                        <Link to={`/tests/${id}`} className={LINK}>
-                          {t?.name ?? id}
-                        </Link>
-                        {t && <StatusChip status={t.status} />}
-                      </li>
-                    );
-                  })}
-                </ul>
+                <>
+                  <p className="mt-0.5 text-sm font-medium text-slate-900 tabular-nums">
+                    Tests {progress.passing} of {progress.total} passing
+                  </p>
+                  <ul className="mt-1 flex flex-col gap-1">
+                    {selected.testIds.map((id) => {
+                      const t = getTest(id);
+                      const ok = t?.status === 'passing';
+                      return (
+                        <li key={id} className="flex items-center justify-between gap-2 text-sm">
+                          <span className="flex items-center gap-1.5">
+                            {ok ? (
+                              <CircleCheck size={16} aria-hidden className="text-emerald-700" />
+                            ) : (
+                              <CircleX size={16} aria-hidden className="text-red-700" />
+                            )}
+                            <span className="sr-only">{ok ? 'Passing: ' : 'Failing: '}</span>
+                            <Link to={`/tests/${id}`} className={LINK}>
+                              {t?.name ?? id}
+                            </Link>
+                          </span>
+                          {t && <StatusChip status={t.status} />}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
               )}
             </Mapped>
             <Mapped title={`Documents (${selected.documentIds.length})`}>
@@ -198,9 +227,17 @@ export default function Screen() {
                 </ul>
               )}
             </Mapped>
+            <ObjectActivity
+              object={{
+                id: selected.id,
+                kind: 'Control',
+                history: selected.history,
+                comments: selected.comments,
+              }}
+            />
           </>
         )}
-      </ObjectDrawer>
+      </Drawer>
     </Page>
   );
 }

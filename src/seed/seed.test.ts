@@ -16,6 +16,7 @@ import {
   classifierConfig,
   erasureRequests,
   evidence,
+  lastVerification,
   lineage,
   mcpSessions,
   pipelineStages,
@@ -209,13 +210,86 @@ describe('AI systems', () => {
 });
 
 describe('integrations', () => {
-  it('has at least 6 sources, one in error, covering the three ways of observing traffic', () => {
-    expect(integrations.length).toBeGreaterThanOrEqual(6);
+  it('has at least 12 sources covering every required category, one in error', () => {
+    expect(integrations.length).toBeGreaterThanOrEqual(12);
     expect(integrations.some((i) => i.status === 'error')).toBe(true);
     const kinds = new Set(integrations.map((i) => i.kind));
-    for (const k of ['reverse-proxy', 'lifecycle-hooks', 'mcp-inspector'] as const) {
-      expect(kinds.has(k)).toBe(true);
+    const required = [
+      'ai-gateway',
+      'agent-hooks',
+      'mcp-inspector',
+      'model-endpoint',
+      'identity',
+      'ticketing',
+      'chat',
+      'key-management',
+      'evidence-archive',
+      'security-export',
+      'timestamp-authority',
+      'source-repository',
+    ] as const;
+    for (const k of required) expect(kinds.has(k), k).toBe(true);
+  });
+
+  it('offers agent SDK hooks in at least 3 languages', () => {
+    const languages = new Set(
+      integrations
+        .filter((i) => i.kind === 'agent-hooks')
+        .flatMap((i) => i.capabilities.filter((c) => ['Python', 'TypeScript', 'Java'].includes(c))),
+    );
+    expect(languages.size).toBeGreaterThanOrEqual(3);
+  });
+
+  it('keeps the existing ids', () => {
+    const ids = new Set(integrations.map((i) => i.id));
+    for (const id of ['int-proxy', 'int-hooks', 'int-mcp', 'int-idp', 'int-ticket', 'int-cloud']) {
+      expect(ids.has(id), id).toBe(true);
     }
+    expect(ids.has('int-repo')).toBe(true);
+    expect(ids.size).toBe(integrations.length);
+  });
+
+  it('gives every set-up source connection details, health and at least 5 activity entries', () => {
+    for (const i of integrations.filter((x) => x.status !== 'not-connected')) {
+      expect(i.connection.keyId, i.id).toMatch(/^int-|^tsa-/);
+      expect(i.connection.lastRotatedAt, i.id).not.toBe('');
+      expect(i.health, i.id).toBeDefined();
+      expect(i.activity.length, i.id).toBeGreaterThanOrEqual(5);
+      expect(i.lastSyncAt, i.id).toBeDefined();
+    }
+  });
+
+  it('explains every source in error: what broke, since when and numbered fix steps', () => {
+    for (const i of integrations) {
+      expect(i.failure !== undefined, i.id).toBe(i.status === 'error');
+    }
+    const mcp = integrations.find((i) => i.id === 'int-mcp')!;
+    expect(mcp.errorMessage).toContain('No heartbeat since 07:12');
+    expect(mcp.failure!.since).toBe(mcp.lastSyncAt);
+    expect(mcp.failure!.fixSteps.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('gives every scope entry a resource kind and the MCP inspector servers and tools', () => {
+    const mcp = integrations.find((i) => i.id === 'int-mcp')!;
+    expect(new Set(mcp.scope.map((e) => e.kind))).toEqual(new Set(['mcp-server', 'tool']));
+    expect(
+      integrations.find((i) => i.id === 'int-proxy')!.scope.every((e) => e.kind === 'endpoint'),
+    ).toBe(true);
+  });
+
+  it('names no vendor: every source has a snippet with a key id and no secret', () => {
+    for (const i of integrations) {
+      expect(i.snippet, i.id).toContain(`source: ${i.id}`);
+      expect(i.snippet.toLowerCase(), i.id).not.toMatch(/secret:|password|token:/);
+    }
+  });
+});
+
+describe('last verification', () => {
+  it('points at a failing evidence-integrity test linked to the evidence control', () => {
+    const test = tests.find((t) => t.id === lastVerification.integrityTestId)!;
+    expect(test.status).toBe('failing');
+    expect(controls.find((c) => c.id === 'CTL-06')!.testIds).toContain(test.id);
   });
 });
 

@@ -6,13 +6,19 @@ import type { IntegrationKind } from './types';
 
 // Every member of the union, enumerated so the type checker rejects a missing or unknown one.
 const ALL_KINDS: Record<IntegrationKind, true> = {
-  'reverse-proxy': true,
-  'lifecycle-hooks': true,
+  'ai-gateway': true,
+  'agent-hooks': true,
   'mcp-inspector': true,
+  'model-endpoint': true,
   identity: true,
   ticketing: true,
+  chat: true,
+  'key-management': true,
+  'evidence-archive': true,
+  'security-export': true,
+  'timestamp-authority': true,
+  'source-repository': true,
   cloud: true,
-  'source-control': true,
 };
 
 it('counts the tests, controls and frameworks a source unlocks', () => {

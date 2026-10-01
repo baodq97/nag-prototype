@@ -21,8 +21,10 @@ import {
   dutyLabel,
   rowOwedBy,
 } from '../../domain/aiact';
-import { RISK_TIER_NAME, RISK_TIER_NUMBER } from '../../domain/classification';
+import { riskTierLabel } from '../../domain/classification';
+import { COVERAGE_ORDER, coverageByGroup, coverageCounts } from '../../domain/summaries';
 import type {
+  AnnexPath,
   ApplicationDate,
   ArticleGroup,
   CoverageRow,
@@ -33,8 +35,12 @@ import type {
 import { Button } from '../../ui/Button';
 import { Drawer } from '../../ui/Drawer';
 import { StubLabel } from '../../ui/Labels';
+import { fmtDate } from '../../ui/format';
 import { Page } from '../../ui/Page';
+import { RiskTierChip } from '../../ui/RiskTierChip';
+import { statusInfo } from '../../ui/status';
 import { StatusChip } from '../../ui/StatusChip';
+import { SummaryStrip } from '../../ui/SummaryStrip';
 import { useOpenParam } from '../../ui/useOpenParam';
 import { AttentionLine } from './AttentionLine';
 
@@ -46,14 +52,12 @@ const ROLES: { value: RoleFilter; label: string }[] = [
   { value: 'deployer', label: 'Deployer' },
   { value: 'both', label: 'Both' },
 ];
-const RISKS: { value: RiskTier; label: string }[] = [
-  { value: 'prohibited', label: 'Prohibited' },
-  { value: 'high', label: 'High' },
-  { value: 'transparency', label: 'Transparency' },
-  { value: 'minimal', label: 'Minimal' },
-];
+const RISKS: { value: RiskTier; label: string }[] = (
+  ['prohibited', 'high', 'transparency', 'minimal'] as const
+).map((value) => ({ value, label: riskTierLabel(value) }));
+const PATH_LABEL: Record<AnnexPath, string> = { 'annex-i': 'Annex I', 'annex-iii': 'Annex III' };
 const NAG_ROLES = Object.keys(NAG_ROLE_LABEL) as NagRole[];
-const STATUSES = Object.keys(COVERAGE_STATUS_LABEL) as CoverageStatus[];
+const STATUSES = COVERAGE_ORDER;
 
 const CLOCK_KINDS = ['widespread-or-critical', 'death', 'serious'] as const;
 
@@ -89,22 +93,54 @@ function ContinuousEvidence() {
   );
 }
 
-function Dates({ dates, list = true }: { dates: ApplicationDate[]; list?: boolean }) {
+const appliesNow = (date: string) => dateChip(date, NOW, tenant.timeZone).appliesNow;
+
+/** The path a date belongs to, when the row has dates for more than one. */
+const pathNote = (d: ApplicationDate, all: ApplicationDate[]) =>
+  d.path && all.length > 1 ? ` (${PATH_LABEL[d.path]})` : '';
+
+/** One compact line in the table; "Applies now" only on a date that has passed. */
+function DateLine({ dates }: { dates: ApplicationDate[] }) {
   if (dates.length === 0) return <span className="text-slate-600">–</span>;
   return (
-    <ul className={list ? 'flex flex-col gap-1' : 'flex flex-col gap-2'}>
-      {dates.map((d) => {
-        const chip = dateChip(d.date, NOW, tenant.timeZone);
-        return (
-          <li key={`${d.date}-${d.path ?? ''}`} className="text-sm">
-            <span className="tabular-nums">{d.date}</span>{' '}
-            <StatusChip variant={chip.appliesNow ? 'success' : 'neutral'}>{chip.label}</StatusChip>
-            {!list && d.note && (
-              <span className="mt-0.5 block text-xs text-slate-600">{d.note}</span>
-            )}
-          </li>
-        );
-      })}
+    <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+      {dates.map((d) => (
+        <span key={`${d.date}-${d.path ?? ''}`} className="whitespace-nowrap">
+          <span className="tabular-nums">{fmtDate(d.date)}</span>
+          {pathNote(d, dates)}
+          {appliesNow(d.date) && (
+            <>
+              {' '}
+              <StatusChip variant="success" description="">
+                Applies now
+              </StatusChip>
+            </>
+          )}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** The drawer's full list: date, whether it applies now, and the note a date carries. */
+function Dates({ dates }: { dates: ApplicationDate[] }) {
+  if (dates.length === 0) return <span className="text-slate-600">–</span>;
+  return (
+    <ul className="flex flex-col gap-2">
+      {dates.map((d) => (
+        <li key={`${d.date}-${d.path ?? ''}`} className="text-sm">
+          <span className="tabular-nums">{fmtDate(d.date)}</span>
+          {pathNote(d, dates)}{' '}
+          {appliesNow(d.date) ? (
+            <StatusChip variant="success" description="">
+              Applies now
+            </StatusChip>
+          ) : (
+            <span className="text-slate-600">Not yet applying</span>
+          )}
+          {d.note && <span className="mt-0.5 block text-xs text-slate-600">{d.note}</span>}
+        </li>
+      ))}
     </ul>
   );
 }
@@ -188,10 +224,10 @@ function RowDrawerBody({ row, dates }: { row: CoverageRow; dates: ApplicationDat
           {row.riskTiers.length === 0 ? (
             '–'
           ) : (
-            <ul className="flex flex-col gap-0.5">
+            <ul className="flex flex-col items-start gap-1">
               {row.riskTiers.map((t) => (
                 <li key={t}>
-                  Risk tier {RISK_TIER_NUMBER[t]} · {RISK_TIER_NAME[t]}
+                  <RiskTierChip riskTier={t} />
                 </li>
               ))}
             </ul>
@@ -210,7 +246,7 @@ function RowDrawerBody({ row, dates }: { row: CoverageRow; dates: ApplicationDat
       <Section title="What NAG does">{row.nagDoes}</Section>
       <Section title="What stays with you">{row.customerKeeps}</Section>
       <Section title="Application dates">
-        <Dates dates={dates} list={false} />
+        <Dates dates={dates} />
       </Section>
       <Section title={`Linked controls (${row.controlIds.length})`}>
         <Linked
@@ -285,6 +321,9 @@ export default function Screen() {
 
   const all = useMemo(() => articleRows(), []);
   const rows = all.filter((r) => matches(r, filters));
+  // The strip counts what the other filters leave, so a tile never promises rows that are hidden.
+  const counts = coverageCounts(all.filter((r) => matches(r, { ...filters, status: undefined })));
+  const groups = coverageByGroup(rows);
   const datesOf = (r: CoverageRow) => datesForPath(r.dates, system?.classification.path);
 
   const setParam = (key: string, value: string) =>
@@ -343,6 +382,21 @@ export default function Screen() {
           </Button>
         </p>
       )}
+      <SummaryStrip
+        label="Coverage by status"
+        tiles={COVERAGE_ORDER.map((status) => {
+          const info = statusInfo(status);
+          return {
+            key: status,
+            label: COVERAGE_STATUS_LABEL[status],
+            value: counts[status],
+            icon: info.icon,
+            tone: info.variant,
+          };
+        })}
+        active={filters.status ?? null}
+        onSelect={(key) => setParam('status', key ?? '')}
+      />
       <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
         <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-2">
           <label className="flex items-center gap-1 text-sm text-slate-700">
@@ -379,12 +433,6 @@ export default function Screen() {
             options={NAG_ROLES.map((r) => ({ value: r, label: NAG_ROLE_LABEL[r] }))}
             onChange={(v) => setParam('nag', v)}
           />
-          <FilterSelect
-            label="Status"
-            value={filters.status ?? ''}
-            options={STATUSES.map((s) => ({ value: s, label: COVERAGE_STATUS_LABEL[s] }))}
-            onChange={(v) => setParam('status', v)}
-          />
           {filtering && (
             <Button
               variant="ghost"
@@ -411,60 +459,95 @@ export default function Screen() {
             Showing {rows.length} of {all.length} articles
           </span>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <caption className="sr-only">Coverage by article</caption>
-            <thead className="bg-slate-50 text-xs text-slate-600">
-              <tr>
-                {['Article', 'Provider', 'Deployer', "NAG's role", 'Dates', 'Status'].map((h) => (
-                  <th key={h} scope="col" className="px-3 py-2 font-medium">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {rows.map((row) => (
-                <tr
-                  key={row.id}
-                  id={row.id}
-                  className={`scroll-mt-20 ${highlighted === row.id ? 'bg-accent-50' : ''}`}
-                >
-                  <td className="max-w-sm px-3 py-2 align-top">
-                    <button
-                      type="button"
-                      onClick={() => setOpen(row.id)}
-                      className="font-medium whitespace-nowrap text-accent-700 hover:underline"
+        <div>
+          {groups.map(({ group, rows: inGroup }, i) => (
+            <section key={group} aria-labelledby={`group-${group}`}>
+              <h2
+                id={`group-${group}`}
+                className="border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-semibold text-slate-900"
+              >
+                {group}. {ARTICLE_GROUPS[group]}{' '}
+                <span className="font-normal text-slate-600">({inGroup.length})</span>
+              </h2>
+              <table className="w-full table-fixed text-left text-sm">
+                <caption className="sr-only">{ARTICLE_GROUPS[group]}</caption>
+                <colgroup>
+                  <col className="w-[27%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[20%]" />
+                </colgroup>
+                <thead className={`bg-white text-xs text-slate-600 ${i === 0 ? '' : 'sr-only'}`}>
+                  <tr>
+                    {['Article', 'Provider', 'Deployer', "NAG's role", 'Dates', 'Status'].map(
+                      (h) => (
+                        <th key={h} scope="col" className="px-2 py-1.5 font-medium">
+                          {h}
+                        </th>
+                      ),
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {inGroup.map((row) => (
+                    <tr
+                      key={row.id}
+                      id={row.id}
+                      className={`scroll-mt-20 ${highlighted === row.id ? 'bg-accent-50' : ''}`}
                     >
-                      {row.article}
-                    </button>
-                    <span className="block text-xs text-slate-700">{row.title}</span>
-                    {row.outsideReason && (
-                      <span className="mt-1 block text-xs text-slate-600">{row.outsideReason}</span>
-                    )}
-                    {row.note && (
-                      <span className="mt-1 block text-xs text-slate-600">{row.note}</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 align-top">{dutyLabel(row.provider)}</td>
-                  <td className="px-3 py-2 align-top">{dutyLabel(row.deployer)}</td>
-                  <td className="px-3 py-2 align-top">
-                    <span className="flex flex-col items-start gap-1">
-                      {NAG_ROLE_LABEL[row.nagRole]}
-                      {row.nagRole === 'control' && <ContinuousEvidence />}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 align-top">
-                    <Dates dates={datesOf(row)} />
-                  </td>
-                  <td className="px-3 py-2 align-top">
-                    <StatusChip status={row.status}>{COVERAGE_STATUS_LABEL[row.status]}</StatusChip>
-                    {row.attention && <AttentionLine attention={row.attention} />}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      <td className="px-2 py-2 align-top">
+                        <button
+                          type="button"
+                          onClick={() => setOpen(row.id)}
+                          className="font-medium whitespace-nowrap text-accent-700 hover:underline"
+                        >
+                          {row.article}
+                        </button>
+                        <span className="line-clamp-1 text-xs text-slate-700" title={row.title}>
+                          {row.title}
+                        </span>
+                        {(row.outsideReason ?? row.note) && (
+                          <span
+                            className="line-clamp-1 text-xs text-slate-600"
+                            title={row.outsideReason ?? row.note}
+                          >
+                            {row.outsideReason ?? row.note}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-2 py-2 align-top">
+                        <span className="line-clamp-3" title={dutyLabel(row.provider)}>
+                          {dutyLabel(row.provider)}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2 align-top">
+                        <span className="line-clamp-3" title={dutyLabel(row.deployer)}>
+                          {dutyLabel(row.deployer)}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2 align-top">
+                        <span className="flex flex-col items-start gap-1">
+                          {NAG_ROLE_LABEL[row.nagRole]}
+                          {row.nagRole === 'control' && <ContinuousEvidence />}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2 align-top">
+                        <DateLine dates={datesOf(row)} />
+                      </td>
+                      <td className="px-2 py-2 align-top">
+                        <StatusChip status={row.status}>
+                          {COVERAGE_STATUS_LABEL[row.status]}
+                        </StatusChip>
+                        {row.attention && <AttentionLine attention={row.attention} compact />}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          ))}
           {rows.length === 0 && (
             <div className="px-4 py-10 text-center">
               <p className="text-sm font-medium text-slate-900">No articles match these filters</p>

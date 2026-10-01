@@ -109,7 +109,7 @@ const TESTS: [string, string, string[], string][] = [
   ],
   [
     'Hash chain verifies end to end',
-    'int-proxy',
+    'int-archive',
     ['aia-12', 'aia-21', 'iso-a.6.2.8'],
     'The L1 hash chain has no breaks over the last 24 hours.',
   ],
@@ -121,13 +121,13 @@ const TESTS: [string, string, string[], string][] = [
   ],
   [
     'Timestamp anchors present for every batch',
-    'int-cloud',
+    'int-tsa',
     ['aia-12'],
     'Every sealed batch carries an L3 timestamp anchor (stub authority).',
   ],
   [
     'Evidence retention of at least 6 months',
-    'int-cloud',
+    'int-archive',
     ['aia-12', 'aia-18', 'aia-19', 'aia-21', 'aia-26-6'],
     'Storage retention keeps evidence for at least 6 months.',
   ],
@@ -139,13 +139,13 @@ const TESTS: [string, string, string[], string][] = [
   ],
   [
     'AI interaction notice shown to end users',
-    'int-proxy',
+    'int-model',
     ['aia-13'],
     'Responses to end users carry the AI interaction notice.',
   ],
   [
     'Quarantine queue has a primary reviewer',
-    'int-idp',
+    'int-chat',
     ['aia-14', 'iso-a.6.2.6'],
     'A primary reviewer is on duty for every business hour.',
   ],
@@ -163,7 +163,7 @@ const TESTS: [string, string, string[], string][] = [
   ],
   [
     'Kill switch drill run in the last 90 days',
-    'int-hooks',
+    'int-hooks-java',
     ['aia-14', 'aia-20', 'iso-a.6.2.6'],
     'A kill switch activation and resume drill ran in the last 90 days.',
   ],
@@ -175,7 +175,7 @@ const TESTS: [string, string, string[], string][] = [
   ],
   [
     'Agent call depth limited to 10',
-    'int-hooks',
+    'int-hooks-ts',
     ['aia-15', 'iso-a.6.2.6'],
     'Calls deeper than 10 levels are rejected.',
   ],
@@ -265,7 +265,7 @@ const TESTS: [string, string, string[], string][] = [
   ],
   [
     'Serious incidents reported within the deadline',
-    'int-ticket',
+    'int-siem',
     ['aia-73', 'iso-10.2'],
     'Incidents classed as serious were reported on time.',
   ],
@@ -289,7 +289,7 @@ const TESTS: [string, string, string[], string][] = [
   ],
   [
     'Erasure keeps evidence countable',
-    'int-cloud',
+    'int-kms',
     ['aia-12'],
     'After key destruction, records stay countable and verifiable.',
   ],

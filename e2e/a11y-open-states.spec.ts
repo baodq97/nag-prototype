@@ -107,3 +107,78 @@ test('the fallback confirmation passes the accessibility scan in both directions
   await expectNoSeriousA11y(page);
   expect(errors).toEqual([]);
 });
+
+// Open states added with the console overhaul: each connect step, the scope dialog, the
+// evidence and AI system drawers, a toast and a tooltip.
+test('every step of the connect flow, and the toast after it, pass the scan', async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.goto('/integrations?tab=available');
+  await page.getByRole('button', { name: 'Connect Agent hooks for TypeScript' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Connect Agent hooks for TypeScript' });
+  await expectNoSeriousA11y(page);
+  await dialog.getByRole('button', { name: 'Next' }).click();
+  await expectNoSeriousA11y(page);
+  await dialog.getByRole('button', { name: 'Next' }).click();
+  await dialog.getByRole('button', { name: 'Run test' }).click();
+  await expectNoSeriousA11y(page);
+  await dialog.getByRole('button', { name: 'Next' }).click();
+  await dialog.getByRole('button', { name: 'Check for heartbeat' }).click();
+  await expectNoSeriousA11y(page);
+  await dialog.getByRole('button', { name: 'Finish and connect' }).click();
+  await expect(page.getByTestId('toast')).toBeVisible();
+  await expectNoSeriousA11y(page);
+  expect(errors).toEqual([]);
+});
+
+test('the scope dialog passes the scan', async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.goto('/integrations');
+  await page.getByRole('button', { name: 'Configure scope of MCP inspector' }).click();
+  await expect(page.getByRole('dialog', { name: 'Configure scope: MCP inspector' })).toBeVisible();
+  await expectNoSeriousA11y(page);
+  expect(errors).toEqual([]);
+});
+
+const openDrawers = [
+  { kind: 'evidence record', path: '/evidence?open=136' },
+  { kind: 'AI system', path: '/ai-systems?open=sys-credit' },
+];
+
+for (const d of openDrawers) {
+  test(`the ${d.kind} drawer passes the scan`, async ({ page }) => {
+    const errors = collectErrors(page);
+    await page.goto(d.path);
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expectNoSeriousA11y(page);
+    expect(errors).toEqual([]);
+  });
+}
+
+test('a status chip tooltip shows on keyboard focus and passes the scan', async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.goto('/tests');
+  await page.locator('[aria-describedby]').filter({ hasText: 'Failing' }).first().focus();
+  await expect(page.getByRole('tooltip')).toBeVisible();
+  await expectNoSeriousA11y(page);
+  expect(errors).toEqual([]);
+});
+
+test('a tooltip closes on Escape and stays open while the pointer is on it', async ({ page }) => {
+  await page.goto('/tests');
+  const trigger = page.locator('[aria-describedby]').filter({ hasText: 'Failing' }).first();
+
+  await trigger.focus();
+  await expect(page.getByRole('tooltip')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('tooltip')).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+
+  await trigger.blur();
+  await trigger.hover();
+  const tooltip = page.getByRole('tooltip');
+  await expect(tooltip).toBeVisible();
+  await tooltip.hover();
+  await expect(tooltip).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('tooltip')).toHaveCount(0);
+});
