@@ -161,6 +161,12 @@ export function assistantContext(): AssistantContext {
   };
 }
 
+const coverageRows = new Set(coverage.map((c) => c.frameworkItemId));
+
+/** Articles with a coverage row open on it; every other item filters the controls table. */
+const itemHref = (i: FrameworkItem) =>
+  coverageRows.has(i.id) ? `/coverage#${i.id}` : `/controls?q=${encodeURIComponent(i.ref)}`;
+
 /** Everything the command search can find: tests, controls, documents, policies, risks, articles. */
 export const searchIndex: SearchEntry[] = [
   ...tests.map((t) => ({ kind: 'test' as const, id: t.id, label: t.name, href: `/tests/${t.id}` })),
@@ -192,9 +198,6 @@ export const searchIndex: SearchEntry[] = [
     kind: 'article' as const,
     id: i.id,
     label: `${i.ref} ${i.title}`,
-    href:
-      i.framework === 'eu-ai-act'
-        ? `/coverage#${i.id}`
-        : `/controls?q=${encodeURIComponent(i.ref)}`,
+    href: itemHref(i),
   })),
 ];
