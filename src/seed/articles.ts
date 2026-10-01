@@ -28,7 +28,7 @@ const MUST: Duty = { kind: 'must' };
 const NA: Duty = { kind: 'not-applicable' };
 const onlyIf = (condition: string): Duty => ({ kind: 'only-if', condition });
 
-const ALL_TIERS: RiskTier[] = ['prohibited', 'high', 'transparency', 'minimal'];
+const ALL_RISK_TIERS: RiskTier[] = ['prohibited', 'high', 'transparency', 'minimal'];
 const ANNEX_III: ApplicationDate = { date: '2027-12-02', path: 'annex-iii' };
 const ANNEX_I: ApplicationDate = { date: '2028-08-02', path: 'annex-i' };
 const HIGH_RISK = { riskTiers: ['high'] as RiskTier[], dates: [ANNEX_III, ANNEX_I] };
@@ -632,13 +632,13 @@ const TRANSPARENCY_ROWS: Line[] = [
 ];
 
 export const articleMap: ArticleRow[] = [
-  ...PROHIBITED.map(toRow('P', { riskTiers: ALL_TIERS, dates: [{ date: '2025-02-02' }] })),
+  ...PROHIBITED.map(toRow('P', { riskTiers: ALL_RISK_TIERS, dates: [{ date: '2025-02-02' }] })),
   ...CLASSIFICATION.map(toRow('A', HIGH_RISK)),
   ...REQUIREMENTS.map(toRow('B', HIGH_RISK)),
   ...PROVIDER.map(toRow('C', HIGH_RISK)),
   ...CONFORMITY.map(toRow('D', HIGH_RISK)),
   ...DEPLOYER.map(toRow('E', HIGH_RISK)),
   ...VALUE_CHAIN.map(toRow('F', HIGH_RISK)),
-  ...CROSS_CUTTING.map(toRow('G', { riskTiers: ALL_TIERS, dates: [] })),
+  ...CROSS_CUTTING.map(toRow('G', { riskTiers: ALL_RISK_TIERS, dates: [] })),
   ...TRANSPARENCY_ROWS.map(toRow('T', TRANSPARENCY)),
 ];

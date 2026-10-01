@@ -45,7 +45,7 @@ const STEPS = [
   '6. Otherwise minimal?',
 ] as const;
 
-/** The six steps in order; the first that decides a risk tier ends the tier search. */
+/** The six steps in order; the first that decides a risk tier ends the search. */
 export function classify(answers: ClassificationAnswers, roleAnswers: RoleAnswers): Classification {
   const reasoning: ReasoningLine[] = [];
   const line = (step: string, answer: string, reason: string) =>

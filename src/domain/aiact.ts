@@ -72,7 +72,7 @@ export function rowOwedBy(row: Pick<ArticleRow, 'provider' | 'deployer'>, role: 
 }
 
 /**
- * A row applies to a system when its risk tiers hold the system's tier (or the system has
+ * A row applies to a system when its risk tiers hold the system's risk tier (or the system has
  * a transparency trigger and the row is a transparency row), and one of the system's roles
  * owes it.
  */

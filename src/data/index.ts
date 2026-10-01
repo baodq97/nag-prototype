@@ -40,7 +40,7 @@ import {
   tenant,
   trustUpdatedAt,
 } from '../seed/base';
-import { articleMap } from '../seed/articles';
+import { ARTICLE_GROUPS, articleMap } from '../seed/articles';
 import { controls, documents, policies, tests } from '../seed/catalogue';
 import {
   audits,
@@ -66,6 +66,7 @@ import {
 import { aiSystems as seededSystems } from '../seed/systems';
 
 export {
+  ARTICLE_GROUPS,
   ERASURE_SUBJECTS,
   NOW,
   audits,
