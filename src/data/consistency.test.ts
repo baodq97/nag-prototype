@@ -92,24 +92,34 @@ describe('trust claims', () => {
     for (const e of allEntries()) expect(e.refs.length, e.name).toBeGreaterThanOrEqual(1);
   });
 
-  it('is never in place while something behind it fails', () => {
+  // "In progress" is checked too: the planned flag must not hide a failing reference.
+  it('is never in place or in progress while something behind it fails', () => {
     const verificationFails = verification().some((r) => !r.ok);
-    for (const e of allEntries().filter((x) => x.status === 'in-place')) {
+    const holds = (name: string, kind: 'document' | 'policy', id: string) => {
+      if (kind === 'document') {
+        const doc = getDocument(id);
+        expect(doc?.status, `${name}: ${id}`).toBe('approved');
+        expect(documentReview(doc!), `${name}: ${id}`).toBe('current');
+      } else {
+        const policy = getPolicy(id);
+        expect(policy?.status, `${name}: ${id}`).toBe('approved');
+        expect(policyRenewal(policy!), `${name}: ${id}`).toBe('current');
+      }
+    };
+    const checked = allEntries().filter((x) => x.status !== 'under-remediation');
+    expect(checked.some((x) => x.planned)).toBe(true);
+    for (const e of checked) {
       for (const ref of e.refs) {
         if (ref.kind === 'control') {
           const control = getControl(ref.id);
           expect(control, `${e.name}: ${ref.id}`).toBeDefined();
           expect(controlStatus(control!).ok, `${e.name}: ${ref.id}`).toBe(true);
-        } else if (ref.kind === 'document') {
-          const doc = getDocument(ref.id);
-          expect(doc?.status, `${e.name}: ${ref.id}`).toBe('approved');
-          expect(documentReview(doc!), `${e.name}: ${ref.id}`).toBe('current');
-        } else if (ref.kind === 'policy') {
-          const policy = getPolicy(ref.id);
-          expect(policy?.status, `${e.name}: ${ref.id}`).toBe('approved');
-          expect(policyRenewal(policy!), `${e.name}: ${ref.id}`).toBe('current');
-        } else {
+          for (const id of control!.documentIds) holds(e.name, 'document', id);
+          for (const id of control!.policyIds) holds(e.name, 'policy', id);
+        } else if (ref.kind === 'verification') {
           expect(verificationFails, `${e.name}: verification`).toBe(false);
+        } else {
+          holds(e.name, ref.kind, ref.id);
         }
       }
     }
