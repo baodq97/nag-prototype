@@ -201,6 +201,7 @@ function RowDrawerBody({ row, dates }: { row: CoverageRow; dates: ApplicationDat
       {row.outsideReason && (
         <Section title="Why NAG does not cover this">{row.outsideReason}</Section>
       )}
+      {row.note && <Section title="Note">{row.note}</Section>}
       {row.attention && (
         <Section title="Why it needs attention">
           <AttentionLine attention={row.attention} />
@@ -436,6 +437,9 @@ export default function Screen() {
                     <span className="block text-xs text-slate-700">{row.title}</span>
                     {row.outsideReason && (
                       <span className="mt-1 block text-xs text-slate-600">{row.outsideReason}</span>
+                    )}
+                    {row.note && (
+                      <span className="mt-1 block text-xs text-slate-600">{row.note}</span>
                     )}
                   </td>
                   <td className="px-3 py-2 align-top">{dutyLabel(row.provider)}</td>

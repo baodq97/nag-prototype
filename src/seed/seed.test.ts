@@ -107,12 +107,14 @@ describe('article map', () => {
     }
   });
 
-  it('gives every row a duty for the provider, the deployer or both', () => {
-    for (const r of articleMap) {
-      expect([r.provider.kind, r.deployer.kind], r.id).not.toEqual([
-        'not-applicable',
-        'not-applicable',
-      ]);
+  it('gives every row a duty for the provider, the deployer or both, except the information rows', () => {
+    const noDuty = articleMap.filter(
+      (r) => r.provider.kind === 'not-applicable' && r.deployer.kind === 'not-applicable',
+    );
+    expect(noDuty.map((r) => r.id)).toEqual(['aia-99']);
+    for (const r of noDuty) {
+      expect(r.note, r.id).toBeTruthy();
+      expect(r.nagRole, r.id).toBe('supports');
     }
   });
 

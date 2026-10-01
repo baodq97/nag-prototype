@@ -133,6 +133,8 @@ export interface ArticleRow {
   customerKeeps: string;
   /** Why NAG does not cover the row; only on outside-scope rows. */
   outsideReason?: string;
+  /** One plain line shown with the row: why it owes no duty, or how a sector meets it. */
+  note?: string;
   riskTiers: RiskTier[];
   dates: ApplicationDate[];
   /** Runtime feature shown as row content that is a stub in this prototype. */

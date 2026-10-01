@@ -558,12 +558,15 @@ const CROSS_CUTTING: Line[] = [
   [
     '99',
     'Penalties',
-    MUST,
-    MUST,
+    NA,
+    NA,
     'supports',
     'Shows the status of every duty, so gaps can be fixed before they become a breach.',
-    'Answer for any fine; national authorities set and impose penalties.',
-    { dates: [{ date: '2025-08-02' }] },
+    'Nothing on this row itself; national authorities set and impose the fines.',
+    {
+      dates: [{ date: '2025-08-02' }],
+      note: 'Information, not a duty: the fines for breaching the duties above.',
+    },
   ],
 ];
 

@@ -76,6 +76,7 @@ function ArticleItem({ row, system }: { row: CoverageRow; system: AiSystemView }
       <p className="mt-1 text-xs text-slate-700">
         Owed by {owed} · {NAG_ROLE_LABEL[row.nagRole]}
       </p>
+      {row.note && <p className="mt-1 text-xs text-slate-700">{row.note}</p>}
       {row.attention && <AttentionLine attention={row.attention} />}
       <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-700">
         {datesForPath(row.dates, path).map((d) => (
