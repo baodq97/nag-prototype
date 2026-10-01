@@ -232,7 +232,11 @@ const rows: CoverageRow[] = articleMap.map((row) => {
   const links = linkedTo(row.id);
   const linked = links.controlIds.map((id) => controlsById.get(id)!);
   const controlsOk = linked.map((c) => controlStatus(c).ok);
-  const attention = attentionFor(linked, (id) => testsById.get(id)?.status === 'failing');
+  const attention = attentionFor(
+    linked,
+    (id) => testsById.get(id)?.status === 'failing',
+    links.testIds,
+  );
   return {
     ...row,
     ...links,

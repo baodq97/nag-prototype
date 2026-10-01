@@ -66,18 +66,23 @@ export function coverageStatus(
 }
 
 /**
- * The next step on a row that needs attention: the first linked control with a failing test,
- * and that test. Undefined while every linked control passes.
+ * The next step on a row that needs attention: a linked control with a failing test, and that
+ * test. A failing test that is also linked to the row itself comes first, so the step fits the
+ * row; otherwise the first failing control. Undefined while every linked control passes.
  */
 export function attentionFor(
   controls: Pick<Control, 'id' | 'testIds'>[],
   isFailing: (testId: string) => boolean,
+  rowTestIds: string[] = [],
 ): CoverageAttention | undefined {
-  for (const control of controls) {
-    const testId = control.testIds.find(isFailing);
-    if (testId) return { controlId: control.id, testId };
-  }
-  return undefined;
+  const pick = (accept: (testId: string) => boolean) => {
+    for (const control of controls) {
+      const testId = control.testIds.find((id) => isFailing(id) && accept(id));
+      if (testId) return { controlId: control.id, testId };
+    }
+    return undefined;
+  };
+  return pick((id) => rowTestIds.includes(id)) ?? pick(() => true);
 }
 
 /** Role filter of the coverage table: one role, or "both" for a row either role owes. */

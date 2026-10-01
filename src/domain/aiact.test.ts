@@ -55,6 +55,15 @@ describe('attentionFor', () => {
     expect(attentionFor(controls, isFailing)).toEqual({ controlId: 'C2', testId: 'T4' });
   });
 
+  it('prefers a failing test that is linked to the row itself', () => {
+    const controls = [
+      { id: 'C1', testIds: ['T4'] },
+      { id: 'C2', testIds: ['T1', 'T2'] },
+    ];
+    expect(attentionFor(controls, isFailing, ['T2'])).toEqual({ controlId: 'C2', testId: 'T2' });
+    expect(attentionFor(controls, isFailing, ['T1'])).toEqual({ controlId: 'C1', testId: 'T4' });
+  });
+
   it('is undefined while every linked control passes, or none is linked', () => {
     expect(attentionFor([{ id: 'C1', testIds: ['T1', 'T3'] }], isFailing)).toBeUndefined();
     expect(attentionFor([], isFailing)).toBeUndefined();
