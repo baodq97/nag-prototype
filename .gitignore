@@ -3,9 +3,9 @@ CLAUDE.local.md
 .claude/worktrees/
 .claude/settings.local.json
 INCIDENTS.md
-node_modules/
-dist/
-dist-*/
-coverage/
-test-results/
-playwright-report/
+/node_modules/
+/dist/
+/dist-*/
+/coverage/
+/test-results/
+/playwright-report/
