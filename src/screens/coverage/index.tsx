@@ -478,12 +478,12 @@ export default function Screen() {
               <table className="w-full table-fixed text-left text-sm">
                 <caption className="sr-only">{ARTICLE_GROUPS[group]}</caption>
                 <colgroup>
-                  <col className="w-[27%]" />
+                  <col className="w-[21%]" />
                   <col className="w-[13%]" />
-                  <col className="w-[14%]" />
-                  <col className="w-[12%]" />
-                  <col className="w-[14%]" />
-                  <col className="w-[20%]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[15%]" />
+                  <col className="w-[17%]" />
+                  <col className="w-[21%]" />
                 </colgroup>
                 <thead className={`bg-white text-xs text-slate-600 ${i === 0 ? '' : 'sr-only'}`}>
                   <tr>

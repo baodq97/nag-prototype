@@ -57,7 +57,7 @@ export function Shell() {
       <div className="flex min-h-screen">
         <nav
           aria-label="Main"
-          className="sticky top-0 flex h-screen w-60 shrink-0 flex-col gap-4 overflow-y-auto border-r border-slate-200 bg-white px-3 py-4"
+          className="sticky top-0 flex h-screen w-64 shrink-0 flex-col gap-4 overflow-y-auto border-r border-slate-200 bg-white px-3 py-4"
         >
           <div className="px-2">
             <Logo />
@@ -82,7 +82,7 @@ export function Shell() {
                             `flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${isActive ? 'bg-accent-50 font-medium text-accent-800' : 'text-slate-700 hover:bg-slate-100'}`
                           }
                         >
-                          <Icon size={15} aria-hidden />
+                          <Icon size={16} aria-hidden />
                           {r.nav!.label}
                         </NavLink>
                       </li>
