@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 
-/* One accent colour and one type scale for the whole console. */
+/* One accent colour and one type scale for the whole console. Body and table text is 14px,
+   secondary text 13px, page titles 24px: readable at 1920x1080 without browser zoom. */
 @theme {
   --color-accent-50: #eef2ff;
   --color-accent-100: #e0e7ff;
@@ -10,12 +11,12 @@
   --color-accent-800: #312e81;
 
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --text-xs: 0.75rem;
-  --text-sm: 0.8125rem;
-  --text-base: 0.875rem;
-  --text-lg: 1rem;
-  --text-xl: 1.25rem;
-  --text-2xl: 1.5rem;
+  --text-xs: 0.8125rem;
+  --text-sm: 0.875rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 1.875rem;
 }
 
 @layer base {

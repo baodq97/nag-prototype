@@ -237,7 +237,8 @@ test('a missing or out-of-range page value falls back to page 1', async ({ page 
   expect(errors).toEqual([]);
 });
 
-test('the page stays within 3,000 px at 1280x800, on load and after Verify', async ({ page }) => {
+test('the page stays within 3,300 px at 1280x800, on load and after Verify', async ({ page }) => {
+  // A page of 50 records plus the check and operations cards; the budget follows the type scale.
   await page.setViewportSize({ width: 1280, height: 800 });
   const height = () => page.evaluate(() => document.documentElement.scrollHeight);
 
@@ -245,7 +246,7 @@ test('the page stays within 3,000 px at 1280x800, on load and after Verify', asy
   await expectPage(page, 1);
   const onLoad = await height();
   test.info().annotations.push({ type: 'scrollHeight on load', description: String(onLoad) });
-  expect(onLoad).toBeLessThanOrEqual(3000);
+  expect(onLoad).toBeLessThanOrEqual(3300);
 
   await page.getByRole('button', { name: 'Verify' }).click();
   await expect(page.getByTestId('range-101')).toBeVisible();
@@ -254,7 +255,7 @@ test('the page stays within 3,000 px at 1280x800, on load and after Verify', asy
     type: 'scrollHeight after Verify',
     description: String(afterVerify),
   });
-  expect(afterVerify).toBeLessThanOrEqual(3000);
+  expect(afterVerify).toBeLessThanOrEqual(3300);
 });
 
 test('on load the last check shows as one line with a link to the range and when it ran', async ({

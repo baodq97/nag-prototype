@@ -30,7 +30,7 @@ const columns: Column<ComplianceTest>[] = [
     key: 'name',
     header: 'Name',
     sortValue: (t) => t.name.toLowerCase(),
-    className: 'max-w-72',
+    className: 'max-w-96',
     render: (t) => (
       <Link
         to={`/tests/${t.id}`}
